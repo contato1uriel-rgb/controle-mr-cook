@@ -2930,6 +2930,51 @@ def api_cacarolas_add_maquina(request):
 
 
 @require_POST
+def api_cacarolas_update_maquina(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:  # noqa: BLE001
+        payload = {}
+    nome_atual = str(payload.get("nome_atual") or "").strip()
+    novo_nome = str(payload.get("novo_nome") or "").strip()
+    if not nome_atual or not novo_nome:
+        return JsonResponse({"ok": False, "erro": "Nome atual e novo nome são obrigatórios."}, status=400)
+    if nome_atual == novo_nome:
+        maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
+        return JsonResponse({"ok": True, "maquinas": maquinas})
+
+    maq = CacarolaMaquina.objects.filter(nome=nome_atual).first()
+    if not maq:
+        return JsonResponse({"ok": False, "erro": "Máquina não encontrada."}, status=404)
+    if CacarolaMaquina.objects.filter(nome=novo_nome).exists():
+        return JsonResponse({"ok": False, "erro": "Já existe uma máquina com esse nome."}, status=400)
+
+    maq.nome = novo_nome
+    maq.save(update_fields=["nome"])
+    CacarolaRegistro.objects.filter(maquina=nome_atual).update(maquina=novo_nome)
+    maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
+    return JsonResponse({"ok": True, "maquinas": maquinas})
+
+
+@require_POST
+def api_cacarolas_delete_maquina(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:  # noqa: BLE001
+        payload = {}
+    nome = str(payload.get("nome") or "").strip()
+    senha = str(payload.get("senha") or "").strip()
+    senha_ok = str(os.environ.get("CACAROLAS_DELETE_PASSWORD", "2568")).strip()
+    if senha != senha_ok:
+        return JsonResponse({"ok": False, "erro": "Senha inválida para excluir máquina."}, status=403)
+    if not nome:
+        return JsonResponse({"ok": False, "erro": "Nome da máquina é obrigatório."}, status=400)
+    CacarolaMaquina.objects.filter(nome=nome).delete()
+    maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
+    return JsonResponse({"ok": True, "maquinas": maquinas})
+
+
+@require_POST
 def api_cacarolas_upsert_produtos(request):
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")

@@ -343,6 +343,16 @@
         color: var(--text);
         border-left: 3px solid var(--accent-light);
     }
+    .cp-list-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .cp-list-actions {
+        display: inline-flex;
+        gap: 6px;
+    }
 
     #config, #form, #dados { display: none; }
 
@@ -1159,6 +1169,47 @@ const App = {
         }
     },
 
+    async editarMaquina(nomeAtual) {
+        const atual = String(nomeAtual || "").trim();
+        if (!atual) return;
+        const novoNome = prompt("Novo nome da máquina:", atual);
+        if (novoNome === null) return;
+        const nomeTratado = String(novoNome || "").trim();
+        if (!nomeTratado) {
+            alert("Informe um nome válido.");
+            return;
+        }
+        try {
+            const data = await this.postJSON("/api/cacarolas/maquinas/update/", {
+                nome_atual: atual,
+                novo_nome: nomeTratado,
+            });
+            this.state.maquinas = Array.isArray(data.maquinas) ? data.maquinas : this.state.maquinas;
+            this.atualizarListas();
+            alert("Máquina atualizada com sucesso.");
+        } catch (err) {
+            alert(err.message || "Não foi possível editar a máquina.");
+        }
+    },
+
+    async excluirMaquina(nome) {
+        const alvo = String(nome || "").trim();
+        if (!alvo) return;
+        const senha = prompt(`Digite a senha para excluir a máquina "${alvo}":`);
+        if (senha === null) return;
+        try {
+            const data = await this.postJSON("/api/cacarolas/maquinas/delete/", { nome: alvo, senha });
+            this.state.maquinas = Array.isArray(data.maquinas) ? data.maquinas : this.state.maquinas;
+            this.atualizarListas();
+            if (document.getElementById("maquina").value === alvo) {
+                document.getElementById("maquina").value = "";
+            }
+            alert("Máquina excluída com sucesso.");
+        } catch (err) {
+            alert(err.message || "Não foi possível excluir a máquina.");
+        }
+    },
+
     importarExcel(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -1192,7 +1243,7 @@ const App = {
         listaProdutos.innerHTML = "";
         datalist.innerHTML = "";
         this.state.maquinas.forEach(m => {
-            listaMaquinas.innerHTML += `<li>${m}</li>`;
+            listaMaquinas.innerHTML += `<li><div class="cp-list-row"><span>${m}</span><span class="cp-list-actions"><button type="button" class="btn" onclick="App.editarMaquina('${String(m).replace(/'/g, "\\'")}')">Editar</button><button type="button" class="btn" onclick="App.excluirMaquina('${String(m).replace(/'/g, "\\'")}')">Excluir</button></span></div></li>`;
             selectMaquina.innerHTML += `<option value="${m}">${m}</option>`;
         });
         this.state.produtos.forEach(p => {

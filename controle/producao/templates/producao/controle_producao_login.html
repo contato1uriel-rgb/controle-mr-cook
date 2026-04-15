@@ -1,0 +1,277 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Controle de Produção • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Linha de produção{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Produção{% endblock %}
+{% block page_heading_meta %}Caçarolas{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Produção deve ficar com destaque laranja (detalhes que ainda puxam para azul) */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+        --accent-light: #fbbf24;
+    }
+
+    .cp-hub {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    .cp-hub__intro {
+        padding: 22px 24px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(30, 30, 38, 0.92) 0%, rgba(14, 14, 18, 0.96) 100%);
+        backdrop-filter: blur(var(--blur-glass));
+        -webkit-backdrop-filter: blur(var(--blur-glass));
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .cp-hub__intro h2 {
+        margin: 0 0 6px;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 1.05rem;
+        letter-spacing: 0.06em;
+        color: var(--text);
+    }
+    .cp-hub__intro p {
+        margin: 0;
+        font-size: 0.86rem;
+        color: var(--muted);
+        max-width: 48ch;
+    }
+    .cp-chart-panel {
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(28, 28, 36, 0.95) 0%, rgba(12, 12, 16, 0.98) 100%);
+        backdrop-filter: blur(var(--blur-glass));
+        -webkit-backdrop-filter: blur(var(--blur-glass));
+        padding: 16px 14px 12px;
+        height: 260px;
+        box-shadow: var(--shadow-card), inset 0 0 90px rgba(191, 0, 255, 0.07), inset 0 0 60px rgba(200, 255, 0, 0.04);
+    }
+    .cp-chart-panel canvas { display: block; }
+    .cp-actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cp-hub">
+    <div class="cp-hub__intro">
+        <div>
+            <h2>CONTROLE DE PRODUÇÃO — CAÇAROLAS</h2>
+            <p class="muted" style="font-size:0.82rem;margin:0;">1º · 2º · 3º · dados locais</p>
+        </div>
+        <div class="turno-legend" aria-label="Legenda de cores dos turnos">
+            <span class="turno-chip turno-chip--1"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">1º</span><span class="turno-chip__hex"></span></span>
+            <span class="turno-chip turno-chip--2"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">2º</span><span class="turno-chip__hex"></span></span>
+            <span class="turno-chip turno-chip--3"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">3º</span><span class="turno-chip__hex"></span></span>
+        </div>
+    </div>
+
+    <section aria-label="Indicadores por turno">
+        <h2 class="ind-section-label">
+            <span class="ind-section-label__num">01</span>
+            <span class="ind-section-label__text">Resumo numérico</span>
+        </h2>
+        <div class="ind-kpi-strip">
+            <article class="ind-kpi-card ind-kpi-card--t1">
+                <p class="ind-kpi-card__label">1º turno</p>
+                <p class="ind-kpi-card__value" id="cpHubKpi1">0</p>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+            <article class="ind-kpi-card ind-kpi-card--t2">
+                <p class="ind-kpi-card__label">2º turno</p>
+                <p class="ind-kpi-card__value" id="cpHubKpi2">0</p>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+            <article class="ind-kpi-card ind-kpi-card--t3">
+                <p class="ind-kpi-card__label">3º turno</p>
+                <p class="ind-kpi-card__value" id="cpHubKpi3">0</p>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+            <article class="ind-kpi-card ind-kpi-card--tot">
+                <p class="ind-kpi-card__label">Total</p>
+                <p class="ind-kpi-card__value" id="cpHubKpiTot" style="color:var(--text);">0</p>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+        </div>
+    </section>
+
+    <section class="card" aria-labelledby="cp-hub-chart-title">
+        <h2 id="cp-hub-chart-title" class="ind-section-label">
+            <span class="ind-section-label__num">02</span>
+            <span class="ind-section-label__text">Produção por turno</span>
+        </h2>
+        <p id="cpHubSemDadosMsg" class="muted" style="margin:-4px 0 14px;{% if tem_dados_turno %}display:none{% endif %}">Sem registros locais.</p>
+
+        <div class="cp-chart-panel">
+            <canvas id="graficoTurnos"></canvas>
+        </div>
+
+        <div class="cp-actions-row" style="margin-top:18px;">
+            <a class="btn btn-accent" href="{% url 'controle_producao_cacarolas' %}">Painel Caçarolas</a>
+        </div>
+    </section>
+</div>
+
+<script>
+(function () {
+    const labels = {{ turno_labels_json|safe }};
+    const canvas = document.getElementById('graficoTurnos');
+    const msg = document.getElementById('cpHubSemDadosMsg');
+    const root = document.documentElement;
+    const isDark = root.getAttribute('data-theme') !== 'light';
+    const tickColor = isDark ? 'rgba(180, 190, 210, 0.85)' : 'rgba(70, 80, 100, 0.9)';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+    const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+
+    const k1 = document.getElementById('cpHubKpi1');
+    const k2 = document.getElementById('cpHubKpi2');
+    const k3 = document.getElementById('cpHubKpi3');
+    const kt = document.getElementById('cpHubKpiTot');
+
+    function normalizeTurno(value) {
+        const s = String(value || '').toLowerCase().trim();
+        if (['1', '1 turno', '1º turno', 'primeiro turno'].includes(s)) return '1';
+        if (['2', '2 turno', '2º turno', 'segundo turno'].includes(s)) return '2';
+        if (['3', '3 turno', '3º turno', 'terceiro turno'].includes(s)) return '3';
+        return String(value || '').trim();
+    }
+
+    function agregarPorTurno() {
+        let raw = [];
+        try {
+            raw = JSON.parse(localStorage.getItem('registros') || '[]');
+        } catch (e) {
+            raw = [];
+        }
+        if (!Array.isArray(raw)) raw = [];
+        const acc = { '1': 0, '2': 0, '3': 0 };
+        raw.forEach(function (r) {
+            if (!r || typeof r !== 'object') return;
+            const t = normalizeTurno(r.turno);
+            if (acc[t] === undefined) return;
+            const q = Number(String(r.quantidade != null ? r.quantidade : (r.producao != null ? r.producao : (r.qtd || 0))).replace(',', '.'));
+            acc[t] += Number.isFinite(q) ? q : 0;
+        });
+        return [acc['1'], acc['2'], acc['3']];
+    }
+
+    function updateKpisFromData(arr) {
+        if (k1) k1.textContent = nf.format(arr[0]);
+        if (k2) k2.textContent = nf.format(arr[1]);
+        if (k3) k3.textContent = nf.format(arr[2]);
+        if (kt) kt.textContent = nf.format(arr[0] + arr[1] + arr[2]);
+    }
+
+    const tipBg = isDark ? 'rgba(18, 18, 22, 0.94)' : 'rgba(255, 255, 255, 0.98)';
+    const tipTitle = isDark ? '#fbbf24' : '#0066cc';
+    const tipBody = isDark ? '#e8ecf4' : '#0c1222';
+    const tipBorder = isDark ? 'rgba(249, 115, 22, 0.35)' : 'rgba(0, 102, 204, 0.25)';
+
+    const chart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Produção',
+                data: {{ turno_valores_json|safe }},
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.55)',
+                    'rgba(59, 130, 246, 0.55)',
+                    'rgba(245, 158, 11, 0.55)',
+                ],
+                borderColor: [
+                    'rgba(34, 197, 94, 0.85)',
+                    'rgba(59, 130, 246, 0.85)',
+                    'rgba(245, 158, 11, 0.85)',
+                ],
+                hoverBackgroundColor: [
+                    'rgba(34, 197, 94, 0.62)',
+                    'rgba(59, 130, 246, 0.62)',
+                    'rgba(245, 158, 11, 0.62)',
+                ],
+                borderWidth: 1,
+                borderRadius: 8,
+                maxBarThickness: 56
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: tipBg,
+                    titleColor: tipTitle,
+                    bodyColor: tipBody,
+                    borderColor: tipBorder,
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 10
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: tickColor, font: { family: "'Inter', sans-serif", size: 11 } },
+                    grid: { color: gridColor },
+                    border: { display: false }
+                },
+                y: {
+                    ticks: { color: tickColor, font: { family: "'Inter', sans-serif", size: 10 } },
+                    grid: { color: gridColor },
+                    beginAtZero: true,
+                    border: { display: false }
+                }
+            },
+            onHover: function (e, els) {
+                e.native.target.style.cursor = els.length ? 'pointer' : 'default';
+            }
+        }
+    });
+
+    function aplicarDadosLocal() {
+        const valores = agregarPorTurno();
+        chart.data.datasets[0].data = valores;
+        chart.update();
+        updateKpisFromData(valores);
+        const tem = valores.some(function (v) { return v > 0; });
+        if (msg) msg.style.display = tem ? 'none' : '';
+    }
+
+    aplicarDadosLocal();
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'registros') aplicarDadosLocal();
+    });
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') aplicarDadosLocal();
+    });
+})();
+</script>
+{% endblock %}

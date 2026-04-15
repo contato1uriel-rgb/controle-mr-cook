@@ -1,0 +1,225 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Configurar distribuição • CONTROLE MR. COOK{% endblock %}
+
+{% block extra_head %}
+<style>
+    .layout {
+        display:grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
+        gap: 16px;
+    }
+    @media (max-width: 900px) {
+        .layout { grid-template-columns: 1fr; }
+    }
+
+    details {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panel2);
+        padding: 8px 10px;
+    }
+    summary { cursor:pointer; list-style:none; }
+    summary::-webkit-details-marker { display:none; }
+    .checklist {
+        margin-top: 8px;
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 10px;
+    }
+    @media (max-width: 720px) { .checklist { grid-template-columns: 1fr; } }
+    .chk {
+        display:flex;
+        gap: 8px;
+        align-items:center;
+        font-size: 0.82rem;
+        color: var(--text);
+    }
+    .save-row {
+        display:flex;
+        justify-content:flex-end;
+        margin-top: 10px;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 9px 11px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--panel2);
+        color: var(--text);
+        font-size: 0.88rem;
+    }
+
+    table {
+        width:100%;
+        border-collapse:collapse;
+        font-size:0.82rem;
+    }
+    th, td {
+        padding:6px 4px;
+        border-bottom:1px solid var(--border);
+        text-align:left;
+    }
+    th { color:var(--muted); font-weight:500; }
+
+    .tag {
+        display:inline-flex;
+        padding:2px 8px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        font-size:0.75rem;
+        margin-right:4px;
+        margin-bottom:2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2 style="margin:0 0 6px;">Configurar categorias dos produtos</h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0 12px;">
+            <a class="btn" href="{% url 'distribuir_operacao' %}">Voltar</a>
+        </div>
+
+        <div class="layout">
+            <section>
+                <h3 style="margin:0 0 6px;">Categorias</h3>
+                <form method="post" style="display:flex; gap:8px; margin-bottom:8px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="add_categoria" />
+                    <input type="text" name="nome" placeholder="Ex.: ASSADEIRAS" required />
+                    <button class="btn btn-accent" type="submit">Adicionar</button>
+                </form>
+
+                <div class="muted">
+                    As categorias ficam salvas e poderão ser selecionadas em cada produto ao lado.
+                </div>
+                <div style="margin-top:10px;">
+                    {% for cat in categorias %}
+                        <span class="tag">{{ cat.nome }} ({{ cat.qtd_produtos }})</span>
+                    {% empty %}
+                        <span class="muted">Nenhuma categoria cadastrada.</span>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section>
+                <h3 style="margin:16px 0 6px;">Produtos sem categoria</h3>
+                <div class="muted" style="margin-bottom:8px;">
+                    Use esta lista para localizar rapidamente os produtos que ainda não possuem categoria e atribuir uma ou mais categorias por aqui.
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:110px;">Cód.</th>
+                            <th>Nome</th>
+                            <th style="width:360px;">Atribuir categorias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in produtos_sem_categoria %}
+                            <tr>
+                                <td>{{ p.codigo }}</td>
+                                <td>{{ p.nome }}</td>
+                                <td>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="acao" value="set_produto_categorias" />
+                                        <input type="hidden" name="produto_id" value="{{ p.id }}" />
+
+                                        <details>
+                                            <summary class="muted" style="font-size:0.82rem;">Selecionar categorias…</summary>
+                                            <div class="checklist" role="group" aria-label="Categorias do produto sem categoria">
+                                                {% for cat in categorias_raw %}
+                                                    <label class="chk">
+                                                        <input type="checkbox" name="categorias" value="{{ cat.id }}" />
+                                                        {{ cat.nome }}
+                                                    </label>
+                                                {% empty %}
+                                                    <span class="muted">Crie uma categoria primeiro.</span>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="save-row">
+                                                <button class="btn btn-accent" type="submit" style="padding:8px 12px;">Salvar categorias</button>
+                                            </div>
+                                        </details>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="muted">Todos os produtos já possuem categoria.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h3 style="margin:0 0 6px;">Produtos</h3>
+                <div class="muted" style="margin-bottom:8px;">
+                    Produtos são criados automaticamente a partir das relações (sem repetir código).
+                    Para cada produto, selecione as categorias no menu (checklist) e clique em “Salvar categorias”.
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:110px;">Cód.</th>
+                            <th>Nome</th>
+                            <th style="width:360px;">Categorias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in produtos %}
+                            <tr>
+                                <td>{{ p.codigo }}</td>
+                                <td>{{ p.nome }}</td>
+                                <td>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="acao" value="set_produto_categorias" />
+                                        <input type="hidden" name="produto_id" value="{{ p.id }}" />
+
+                                        <details>
+                                            <summary class="muted" style="font-size:0.82rem;">
+                                                {% if p.categorias.all %}
+                                                    {% for c in p.categorias.all %}
+                                                        <span class="tag">{{ c.nome }}</span>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    Selecionar categorias…
+                                                {% endif %}
+                                            </summary>
+                                            <div class="checklist" role="group" aria-label="Categorias">
+                                                {% for cat in categorias_raw %}
+                                                    <label class="chk">
+                                                        <input type="checkbox" name="categorias" value="{{ cat.id }}"
+                                                               {% if cat in p.categorias.all %}checked{% endif %} />
+                                                        {{ cat.nome }}
+                                                    </label>
+                                                {% empty %}
+                                                    <span class="muted">Crie uma categoria primeiro.</span>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="save-row">
+                                                <button class="btn btn-accent" type="submit" style="padding:8px 12px;">Salvar categorias</button>
+                                            </div>
+                                        </details>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="muted">Nenhum produto encontrado.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+{% endblock %}
+

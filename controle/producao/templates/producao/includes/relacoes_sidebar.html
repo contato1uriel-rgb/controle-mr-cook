@@ -1,0 +1,57 @@
+{# Contexto: relacoes, aba, ok_filtro, q, de, ate, relacao_ativa_id (opcional) #}
+<div class="relacoes-sidebar-inner">
+    <div class="relacoes-sidebar-tabs" role="tablist" aria-label="Relações">
+        <a class="relacoes-sidebar-tab {% if aba != 'finalizadas' %}is-active{% endif %}"
+           href="{% url 'relacoes' %}?aba=ativas&ok={{ ok_filtro }}&q={{ q|urlencode }}&de={{ de }}&ate={{ ate }}">Relações</a>
+        <a class="relacoes-sidebar-tab {% if aba == 'finalizadas' %}is-active{% endif %}"
+           href="{% url 'relacoes' %}?aba=finalizadas&ok={{ ok_filtro }}&q={{ q|urlencode }}&de={{ de }}&ate={{ ate }}">Relações Finalizadas</a>
+    </div>
+
+    <div class="relacoes-sidebar-scroll" role="navigation" aria-label="Lista de relações">
+        {% if relacoes %}
+            {% for r in relacoes %}
+                <a class="relacoes-sidebar-card {% if relacao_ativa_id == r.id %}is-active{% endif %}"
+                   href="{% url 'relacao_detalhe' r.id %}"
+                   data-relacao-id="{{ r.id }}"
+                   data-relacao-nome="{{ r.nome|escape }}"
+                   data-relacao-renomear-url="{% url 'relacao_renomear' r.id %}"
+                   data-relacao-excluir-url="{% url 'relacao_excluir' r.id %}">
+                    <div class="relacoes-sidebar-card-top">
+                        <div>
+                            <div class="relacoes-sidebar-card-title">{{ r.nome }}</div>
+                            <div class="relacoes-sidebar-card-date">
+                                Liberação: {% if r.liberacao_producao_data %}{{ r.liberacao_producao_data|date:"d/m/Y" }}{% else %}—{% endif %}
+                                · Previsão: {% if r.previsao_data %}{{ r.previsao_data|date:"d/m/Y" }}{% else %}—{% endif %}
+                            </div>
+                            {% if r.pedidos_subtitulo %}
+                                <div class="relacoes-sidebar-card-date" style="margin-top:3px;">
+                                    Pedidos: {{ r.pedidos_subtitulo }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="relacoes-sidebar-card-pcts">
+                            <div class="relacoes-sidebar-pct">
+                                <span class="relacoes-sidebar-pct-val">{{ r.progresso_itens_ok|floatformat:0 }}%</span>
+                                <span class="muted">Produtos feitos</span>
+                            </div>
+                            <div class="relacoes-sidebar-pct">
+                                <span class="relacoes-sidebar-pct-val relacoes-sidebar-pct-val--muted">{{ r.progresso_quantidade_ok|floatformat:0 }}%</span>
+                                <span class="muted">Qtd. feita</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="relacoes-sidebar-meters">
+                        <div class="relacoes-meter relacoes-meter--accent" aria-hidden="true">
+                            <div style="width: {{ r.progresso_itens_ok|floatformat:0 }}%;"></div>
+                        </div>
+                        <div class="relacoes-meter relacoes-meter--muted" aria-hidden="true">
+                            <div style="width: {{ r.progresso_quantidade_ok|floatformat:0 }}%;"></div>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        {% else %}
+            <div class="relacoes-sidebar-empty muted">Nenhuma relação nesta aba.</div>
+        {% endif %}
+    </div>
+</div>

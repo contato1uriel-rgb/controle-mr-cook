@@ -1,0 +1,406 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Discos • PCP{% endblock %}
+{% block subtitle %}PCP • Discos{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Discos{% endblock %}
+{% block page_heading_meta %}Filtros por setor, razão social e pedido{% endblock %}
+
+{% block topbar_right_actions %}
+<a class="btn" href="{% url 'pcp' %}">PCP</a>
+<a class="btn" href="{% url 'discos_pedidos' %}">Pedidos</a>
+<a class="btn btn-accent" href="{% url 'dados_discos' %}">Dados de Discos</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .d-wrap { max-width: 1200px; margin: 0 auto; }
+    .d-layout { display:grid; grid-template-columns: 320px 1fr; gap:12px; margin-top:12px; }
+    @media (max-width: 980px) { .d-layout { grid-template-columns: 1fr; } }
+    .d-box {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        padding: 12px 14px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    .d-razao-busca { width: 100%; margin-top: 6px; padding: 7px 9px; font-size: 0.86rem; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.12); color: inherit; box-sizing: border-box; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+    .d-list { margin-top: 8px; max-height: 300px; overflow: auto; display:grid; gap:6px; }
+    .d-list label { display:flex; gap:8px; align-items:center; font-size:0.84rem; }
+    .d-table-wrap { margin-top: 10px; border:1px solid var(--border); border-radius:8px; overflow:auto; }
+    .d-table { width:100%; border-collapse: collapse; font-size:0.85rem; }
+    .d-table th, .d-table td { border-bottom:1px solid var(--border); padding:9px 10px; text-align:left; }
+    .d-table th { position:sticky; top:0; background:var(--surface-2); color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; }
+    .d-topbar {
+        display:none;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:10px 12px;
+        border:1px solid var(--border);
+        border-radius:10px;
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        grid-column: 1 / -1;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    .d-topbar .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .d-layout.d-layout--expanded {
+        position: fixed;
+        inset: 0;
+        z-index: 10130;
+        background: var(--bg-page);
+        margin: 0;
+        padding: 12px;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        grid-template-columns: 320px 1fr;
+    }
+    .d-layout.d-layout--expanded .d-topbar { display:flex; }
+    .d-layout.d-layout--expanded .d-box { min-height:0; overflow:auto; }
+    .d-layout.d-layout--expanded .d-table-wrap { max-height: calc(100vh - 250px); }
+    .d-layout.d-layout--expanded.d-layout--hide-filter { grid-template-columns: 1fr; }
+    .d-layout.d-layout--expanded.d-layout--hide-filter aside.d-box { display:none; }
+    html.discos-expanded-lock,
+    body.discos-expanded-lock { overflow: hidden; }
+    .d-setor-filter {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .d-setor-grid {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 6px 10px;
+    }
+    .d-setor-grid label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.82rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-wrap">
+    <div class="cp-help">Mesma base da tabela PCP, sem cards de importação. Setor segue <strong>Dados de filtragem</strong> (Cód. do Produto × Cód Interno), como no PCP. Em Razão social aparecem apenas clientes com linha com pedido; pedidos e razões se atualizam conforme o recorte de setor.</div>
+    <div class="d-layout" id="discosLayout">
+        <div class="d-topbar">
+            <div class="pcp-title" style="font-size:0.86rem;">Modo expandido — Discos</div>
+            <div class="actions">
+                <button class="btn" type="button" id="btnDiscosToggleFilter">Minimizar filtro</button>
+                <button class="btn btn-accent" type="button" id="btnDiscosExitExpand">Retornar</button>
+            </div>
+        </div>
+        <aside class="d-box">
+            <div class="pcp-title" style="font-size:0.88rem;">Filtrar por Razão social</div>
+            <label class="cp-help" for="razaoBuscaCod" style="display:block; margin-top:8px;">Buscar por código (Cód. Cliente)</label>
+            <input type="search" id="razaoBuscaCod" class="d-razao-busca" placeholder="Digite o código do cliente…" autocomplete="off" oninput="DiscosFilter.apply()" />
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn" type="button" onclick="DiscosFilter.all('razaoLista')">Todos</button>
+                <button class="btn" type="button" onclick="DiscosFilter.none('razaoLista')">Limpar</button>
+            </div>
+            <div id="razaoLista" class="d-list">
+                {% for item in razoes_busca %}
+                    <label data-cod-busca="{{ item.cods_busca|escape }}">
+                        <input type="checkbox" value="{{ item.razao|escape }}" checked onchange="DiscosFilter.apply()" />
+                        <span>{{ item.razao }}</span>
+                    </label>
+                {% empty %}
+                    <div class="cp-help">Sem razões sociais.</div>
+                {% endfor %}
+            </div>
+
+            <div class="pcp-title" style="font-size:0.88rem; margin-top:12px;">Filtrar por Pedido</div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn" type="button" onclick="DiscosFilter.all('pedidoLista')">Todos</button>
+                <button class="btn" type="button" onclick="DiscosFilter.none('pedidoLista')">Limpar</button>
+            </div>
+            <div id="pedidoLista" class="d-list">
+                {% for p in pedidos %}
+                    <label><input type="checkbox" value="{{ p }}" checked onchange="DiscosFilter.apply()" /><span>{{ p }}</span></label>
+                {% empty %}
+                    <div class="cp-help">Sem pedidos.</div>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <section class="d-box">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                <div class="pcp-title" style="font-size:0.88rem;">Tabela — Discos</div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <a class="btn" href="{% url 'dados_discos' %}">Dados de Discos</a>
+                    <button class="btn" type="button" id="btnDiscosExpand">Expandir tela</button>
+                </div>
+            </div>
+            <div class="cp-help" id="dCount" style="margin-top:6px;">Linhas: {{ rows|length }}</div>
+            <div class="d-setor-filter">
+                <div class="cp-help" style="margin:0;">
+                    Filtrar por local (Setor) com base em <strong>Dados de filtragem</strong>, comparando
+                    <strong>Cód. do Produto</strong> com <strong>Cód Interno</strong>.
+                </div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn" type="button" onclick="DiscosFilter.selecionarTudoSetor()">Todos os setores</button>
+                    <button class="btn" type="button" onclick="DiscosFilter.limparSetor()">Limpar setores</button>
+                </div>
+                <div id="setorLista" class="d-setor-grid">
+                    {% for s in setores_disponiveis %}
+                        <label data-setor-item="{{ s|lower }}">
+                            <input type="checkbox" value="{{ s }}" checked onchange="DiscosFilter.apply()" />
+                            <span>{{ s }}</span>
+                        </label>
+                    {% empty %}
+                        <div class="cp-help">Sem setores para filtrar.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="d-table-wrap">
+                <table class="d-table">
+                    <thead>
+                        <tr>
+                            <th>Número do Pedido</th>
+                            <th>Razão Social</th>
+                            <th>Cód. Cliente</th>
+                            <th>Descrição dos produtos</th>
+                            <th>Cód. do Produto</th>
+                            <th>Saldo Pedido</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dBody">
+                        {% for r in rows %}
+                            <tr data-razao="{{ r.razao_social }}" data-pedido="{{ r.pedido }}" data-setores="{{ r.setores_match_str }}">
+                                <td>{{ r.pedido }}</td>
+                                <td>{{ r.razao_social }}</td>
+                                <td>{{ r.cod_cliente }}</td>
+                                <td>{{ r.descricao }}</td>
+                                <td>{{ r.codigo }}</td>
+                                <td>{{ r.saldo }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="6" class="cp-help">Sem dados para exibir.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const DiscosFilter = {
+    _sel(listId, visibleOnly) {
+        const list = document.getElementById(listId);
+        if (!list) return new Set();
+        let boxes = Array.from(list.querySelectorAll("input[type='checkbox']"));
+        if (visibleOnly) {
+            boxes = boxes.filter((inp) => {
+                const lab = inp.closest("label");
+                return lab && lab.style.display !== "none";
+            });
+        }
+        const all = boxes.map((i) => (i.value || "").trim()).filter(Boolean);
+        const checked = boxes.filter((i) => i.checked).map((i) => (i.value || "").trim()).filter(Boolean);
+        return new Set(checked.length ? checked : all);
+    },
+    _selectedSetores() {
+        const all = Array.from(document.querySelectorAll("#setorLista input[type='checkbox']"))
+            .map((x) => (x.value || "").trim())
+            .filter(Boolean);
+        const checked = Array.from(document.querySelectorAll("#setorLista input[type='checkbox']:checked"))
+            .map((x) => (x.value || "").trim())
+            .filter(Boolean);
+        if (!all.length) return null;
+        return new Set(checked.length ? checked : all);
+    },
+    _rowMatchesSetor(tr, selectedSetores) {
+        if (selectedSetores === null) return true;
+        const sRaw = (tr.getAttribute("data-setores") || "").trim();
+        const sList = sRaw ? sRaw.split("|").map((x) => x.trim()).filter(Boolean) : [];
+        return sList.some((s) => selectedSetores.has(s));
+    },
+    _refreshPedidoListForSetor(selectedSetores) {
+        const available = new Set();
+        document.querySelectorAll("#dBody tr[data-pedido]").forEach((tr) => {
+            if (!this._rowMatchesSetor(tr, selectedSetores)) return;
+            const p = (tr.getAttribute("data-pedido") || "").trim();
+            if (p) available.add(p);
+        });
+        document.querySelectorAll("#pedidoLista label").forEach((lab) => {
+            const inp = lab.querySelector("input[type='checkbox']");
+            if (!inp) return;
+            const p = (inp.value || "").trim();
+            const ok = available.has(p);
+            lab.style.display = ok ? "" : "none";
+            if (!ok) inp.checked = false;
+        });
+    },
+    _selectedPedidos() {
+        const allVisible = Array.from(document.querySelectorAll("#pedidoLista label"))
+            .filter((el) => el.style.display !== "none")
+            .map((el) => {
+                const inp = el.querySelector("input[type='checkbox']");
+                return inp ? (inp.value || "").trim() : "";
+            })
+            .filter(Boolean);
+        const checked = Array.from(document.querySelectorAll("#pedidoLista input[type='checkbox']:checked"))
+            .map((x) => (x.value || "").trim())
+            .filter(Boolean);
+        return new Set(checked.length ? checked : allVisible);
+    },
+    _razoesAtivas(selectedSetores, selPed) {
+        const ativos = new Set();
+        document.querySelectorAll("#dBody tr[data-pedido]").forEach((tr) => {
+            if (!this._rowMatchesSetor(tr, selectedSetores)) return;
+            const rz = (tr.getAttribute("data-razao") || "").trim();
+            const pd = (tr.getAttribute("data-pedido") || "").trim();
+            if (!pd || !rz) return;
+            if (!selPed.has(pd)) return;
+            ativos.add(rz);
+        });
+        return ativos;
+    },
+    _aplicarBuscaRazao() {
+        const inp = document.getElementById("razaoBuscaCod");
+        const term = inp ? (inp.value || "").trim().toLowerCase() : "";
+        document.querySelectorAll("#razaoLista label").forEach((lab) => {
+            const cb = lab.querySelector("input[type='checkbox']");
+            const baseOk = lab.dataset.baseVisible === "1";
+            const cods = (lab.getAttribute("data-cod-busca") || "").toLowerCase();
+            let show = baseOk;
+            if (show && term) {
+                show = cods.includes(term);
+            }
+            lab.style.display = show ? "" : "none";
+            if (!show && cb) cb.checked = false;
+        });
+    },
+    _syncRazaoLista(selectedSetores, selPed) {
+        const ativos = this._razoesAtivas(selectedSetores, selPed);
+        const lista = document.getElementById("razaoLista");
+        if (!lista) return;
+        lista.querySelectorAll("label").forEach((lab) => {
+            const inp = lab.querySelector("input[type='checkbox']");
+            const v = inp ? (inp.value || "").trim() : "";
+            const ok = ativos.has(v);
+            lab.dataset.baseVisible = ok ? "1" : "0";
+            if (!ok && inp) inp.checked = false;
+        });
+        this._aplicarBuscaRazao();
+    },
+    apply() {
+        const selectedSetores = this._selectedSetores();
+        this._refreshPedidoListForSetor(selectedSetores);
+        const selPed = this._selectedPedidos();
+        this._syncRazaoLista(selectedSetores, selPed);
+        const selRaz = this._sel("razaoLista", true);
+        let vis = 0;
+        document.querySelectorAll("#dBody tr[data-pedido]").forEach((tr) => {
+            const rz = (tr.getAttribute("data-razao") || "").trim();
+            const pd = (tr.getAttribute("data-pedido") || "").trim();
+            const onSetor = this._rowMatchesSetor(tr, selectedSetores);
+            const on = onSetor && selPed.has(pd) && selRaz.has(rz);
+            tr.style.display = on ? "" : "none";
+            if (on) vis++;
+        });
+        const c = document.getElementById("dCount");
+        if (c) c.textContent = "Linhas visíveis: " + vis;
+    },
+    selecionarTudoSetor() {
+        document.querySelectorAll("#setorLista input[type='checkbox']").forEach((c) => { c.checked = true; });
+        this.apply();
+    },
+    limparSetor() {
+        document.querySelectorAll("#setorLista input[type='checkbox']").forEach((c) => { c.checked = false; });
+        this.apply();
+    },
+    all(listId) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+        list.querySelectorAll("input[type='checkbox']").forEach((i) => {
+            const lab = i.closest("label");
+            if (lab && lab.style.display === "none") return;
+            i.checked = true;
+        });
+        this.apply();
+    },
+    none(listId) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+        list.querySelectorAll("input[type='checkbox']").forEach((i) => {
+            const lab = i.closest("label");
+            if (lab && lab.style.display === "none") return;
+            i.checked = false;
+        });
+        this.apply();
+    },
+};
+document.addEventListener("DOMContentLoaded", function () { DiscosFilter.apply(); });
+document.addEventListener("DOMContentLoaded", function () {
+    const layout = document.getElementById("discosLayout");
+    const btnExpand = document.getElementById("btnDiscosExpand");
+    const btnExit = document.getElementById("btnDiscosExitExpand");
+    const btnToggleFilter = document.getElementById("btnDiscosToggleFilter");
+    let parent = null;
+    let next = null;
+
+    function setExpanded(on) {
+        if (!layout) return;
+        if (on) {
+            if (layout.parentNode !== document.body) {
+                parent = layout.parentNode;
+                next = layout.nextSibling;
+                document.body.appendChild(layout);
+            }
+        } else {
+            if (parent && layout.parentNode === document.body) {
+                if (next) parent.insertBefore(layout, next);
+                else parent.appendChild(layout);
+            }
+            parent = null;
+            next = null;
+        }
+        layout.classList.toggle("d-layout--expanded", on);
+        if (!on) {
+            layout.classList.remove("d-layout--hide-filter");
+            if (btnToggleFilter) btnToggleFilter.textContent = "Minimizar filtro";
+        }
+        document.documentElement.classList.toggle("discos-expanded-lock", on);
+        document.body.classList.toggle("discos-expanded-lock", on);
+    }
+
+    if (btnExpand) btnExpand.addEventListener("click", function () { setExpanded(true); });
+    if (btnExit) btnExit.addEventListener("click", function () { setExpanded(false); });
+    if (btnToggleFilter && layout) {
+        btnToggleFilter.addEventListener("click", function () {
+            const hidden = layout.classList.toggle("d-layout--hide-filter");
+            btnToggleFilter.textContent = hidden ? "Mostrar filtro" : "Minimizar filtro";
+        });
+    }
+    document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && layout && layout.classList.contains("d-layout--expanded")) {
+            ev.preventDefault();
+            setExpanded(false);
+        }
+    });
+});
+</script>
+{% endblock %}

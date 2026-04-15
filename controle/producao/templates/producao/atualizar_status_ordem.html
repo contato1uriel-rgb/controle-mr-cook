@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Atualizar Status da OP - Controle</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #020617;
+            color: #e5e7eb;
+        }
+
+        header {
+            padding: 16px 24px;
+            background: #020617;
+            border-bottom: 1px solid #1f2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        main {
+            padding: 24px;
+            max-width: 480px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #1f2937;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        .actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: none;
+            background: #2563eb;
+            color: #e5e7eb;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        a {
+            color: #9ca3af;
+            font-size: 0.8rem;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <strong>Atualizar status da OP {{ ordem.numero }}</strong>
+        </div>
+        <div>
+            <a href="{% url 'lista_ordens' %}">Voltar</a>
+        </div>
+    </header>
+
+    <main>
+        <p>
+            Produto: <strong>{{ ordem.produto.nome }}</strong><br />
+            Quantidade: {{ ordem.quantidade }}<br />
+            Status atual: <strong>{{ ordem.get_status_display }}</strong>
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <label for="status">Novo status</label>
+            <select id="status" name="status" required>
+                {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if ordem.status == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <div class="actions">
+                <button type="submit">Salvar</button>
+                <a href="{% url 'lista_ordens' %}">Cancelar</a>
+            </div>
+        </form>
+    </main>
+</body>
+</html>
+

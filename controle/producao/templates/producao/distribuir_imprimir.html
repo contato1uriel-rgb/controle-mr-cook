@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Imprimir • Controle Mr. Cook</title>
+    <style>
+        body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; margin: 24px; color:#111827; }
+        h1 { margin: 0 0 6px; font-size: 1.1rem; letter-spacing: 0.06em; }
+        .meta { color:#4b5563; font-size: 0.85rem; margin-bottom: 14px; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+        th, td { padding: 8px 6px; border-bottom: 1px solid #e5e7eb; text-align:left; }
+        th { color:#6b7280; font-weight:600; }
+        .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+        @media print {
+            body { margin: 12mm; }
+            .no-print { display:none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 10px;">
+        <button onclick="window.print()">Imprimir</button>
+    </div>
+
+    <h1>Preparar folha para imprimir</h1>
+    <div class="meta">
+        {% if relacao %}<div><strong>Relação:</strong> {{ relacao.nome }}</div>{% endif %}
+        {% if categorias %}
+            <div>
+                <strong>Categorias:</strong>
+                {% for c in categorias %}
+                    {{ c.nome }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% for bloco in blocos %}
+        <h2 style="margin: 18px 0 6px; font-size: 1rem; letter-spacing: 0.04em;">
+            {{ bloco.categoria.nome }}
+        </h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th style="width:140px;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in bloco.resumo %}
+                    <tr>
+                        <td>{{ row.descricao }}</td>
+                        <td>{{ row.total|floatformat:2 }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="2">Sem itens para imprimir.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% empty %}
+        <div>Sem itens para imprimir.</div>
+    {% endfor %}
+
+    <div class="footer">
+        <div><strong>Entregue a produção por:</strong> {{ entregue_por }}</div>
+    </div>
+</body>
+</html>
+

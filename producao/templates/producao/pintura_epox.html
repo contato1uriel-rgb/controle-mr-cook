@@ -1,0 +1,831 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Pintura Epox • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Operacoes • Pintura Epox{% endblock %}
+{% block breadcrumb %}Operacoes{% endblock %}
+{% block page_heading %}Pintura Epox{% endblock %}
+{% block page_heading_meta %}Calendário — texto nos dias • ☰ cores no dia{% endblock %}
+
+{% block extra_head %}
+<meta name="pintura-ui-rev" content="{{ pintura_ui_rev|default:'?' }}">
+<style>
+    /*
+     * Vidro como no PCP só nos cartões (.pcp-card): topbar e cada dia.
+     * Overlay transparente para o wallpaper do body (base: producao/wallpaper/background.jpg) aparecer entre os dias.
+     */
+    body.page-pintura .pcp-card {
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        border-radius: var(--radius-card);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-sizing: border-box;
+    }
+
+    /* Fundo transparente: wallpaper + gradiente do body.page-default ficam visíveis (não usar --bg-page sólido aqui). */
+    #pinturaOverlay {
+        position: fixed;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 12px;
+        background: transparent;
+        overflow: hidden;
+    }
+
+    /* Em base.html os .pcp-card do main ganham sombra de texto; o overlay fica fora do main — espelhar PCP */
+    body.page-pintura #pinturaOverlay .pcp-card :is(h1, h2, h3, h4, p, span, label, th, td, a, strong, small) {
+        text-shadow:
+            0 1px 1px rgba(0, 0, 0, 0.72),
+            0 3px 10px rgba(0, 0, 0, 0.58),
+            0 0 16px rgba(0, 0, 0, 0.28);
+    }
+
+    #pinturaTopbar {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        min-height: 0;
+    }
+
+    #pinturaMonthNav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    #pinturaMonthLabel {
+        font-family: var(--font-display);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 1.25rem;
+        line-height: 1.1;
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: var(--radius-btn);
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        min-width: 240px;
+        text-align: center;
+    }
+
+    #pinturaSavedLabel {
+        color: var(--muted);
+        font-family: var(--font-ui);
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+
+    #pinturaBody {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        margin-top: 12px;
+        overflow: hidden;
+    }
+
+    #pinturaCalendarWrap {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #pinturaWeekdays {
+        flex-shrink: 0;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+        padding: 0 0 10px 0;
+        margin: 0 0 2px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        background: transparent;
+    }
+
+    .pintura-weekday {
+        color: var(--muted);
+        font-family: var(--font-ui);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        padding-left: 6px;
+    }
+
+    #pinturaGrid {
+        flex: 1;
+        min-height: 0;
+        padding: 10px 0 0 0;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        grid-template-rows: repeat(6, minmax(210px, 1fr));
+        gap: 10px;
+        overflow: auto;
+        align-content: start;
+    }
+
+    body.page-pintura .pintura-day.pcp-card {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        position: relative;
+        overflow: visible;
+        min-height: 0;
+        transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+
+    .pintura-day:hover {
+        transform: translateY(-1px);
+        border-color: rgba(59, 130, 246, 0.34);
+    }
+
+    .pintura-day:focus-within {
+        border-style: solid;
+        border-color: rgba(59, 130, 246, 0.55);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+    }
+
+    .pintura-day__top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .pintura-day__menu-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .pintura-day__menu-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-btn);
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0;
+        transition: border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .pintura-day__menu-btn:hover {
+        border-color: var(--border-bright);
+        background: var(--surface);
+    }
+
+    .pintura-day__menu-btn[aria-expanded="true"] {
+        border-color: rgba(59, 130, 246, 0.55);
+        background: rgba(59, 130, 246, 0.15);
+    }
+
+    /* Popup: mesmo vidro que .pcp-modal em pcp.html */
+    .pintura-day__menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        z-index: 50;
+        min-width: 140px;
+        padding: 8px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        display: none;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .pintura-day__menu.is-open {
+        display: flex;
+    }
+
+    .pintura-day__menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        font-family: var(--font-ui);
+        font-weight: 700;
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: left;
+    }
+
+    .pintura-day__menu-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .pintura-day__menu-item--active {
+        border-color: rgba(59, 130, 246, 0.5);
+        background: rgba(59, 130, 246, 0.12);
+    }
+
+    .pintura-day__menu-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+    }
+
+    .pintura-day__menu-clear {
+        margin-top: 2px;
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: #f87171;
+        font-size: 0.68rem;
+    }
+
+    .pintura-day__menu-clear:hover {
+        background: rgba(248, 113, 113, 0.12);
+    }
+
+    .pintura-day--empty {
+        cursor: default;
+        opacity: 0.4;
+        background: var(--surface);
+        box-shadow: none;
+    }
+
+    .pintura-day__num {
+        font-family: var(--font-ui);
+        font-weight: 900;
+        color: var(--text);
+        font-size: 1.15rem;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    textarea.pintura-day__input {
+        flex: 1;
+        min-height: 88px;
+        width: 100%;
+        margin: 0;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 0.84rem;
+        font-weight: 600;
+        line-height: 1.35;
+        resize: none;
+        outline: none;
+    }
+
+    textarea.pintura-day__input::placeholder {
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    textarea.pintura-day__input:focus {
+        border-color: var(--border-bright);
+        box-shadow: var(--shadow-neon);
+    }
+
+    .pintura-day--colored {
+        border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .pintura-day--colored::before {
+        content: "";
+        position: absolute;
+        inset: -40px -40px auto -40px;
+        height: 110px;
+        background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.22), transparent 55%),
+            linear-gradient(180deg, rgba(255,255,255,0.10), transparent);
+        pointer-events: none;
+        opacity: 0.55;
+    }
+
+    .pintura-day__colorbar {
+        width: 100%;
+        height: 5px;
+        border-radius: 999px;
+        flex-shrink: 0;
+        background: var(--color, #3b82f6);
+        opacity: 0.95;
+        box-shadow: 0 0 18px color-mix(in srgb, var(--color) 22%, transparent);
+        pointer-events: none;
+    }
+
+    .pintura-day--colored textarea.pintura-day__input {
+        color: var(--text);
+    }
+    body.pintura-lock-scroll {
+        overflow: hidden;
+    }
+
+    /* Expansão total: esconder menu lateral (overlay é transparente — senão o menu aparecia por baixo) */
+    html.pintura-expanded-lock,
+    body.pintura-expanded-lock {
+        overflow: hidden;
+    }
+    body.pintura-expanded-lock .app {
+        grid-template-columns: 1fr !important;
+    }
+    body.pintura-expanded-lock .sidebar {
+        display: none !important;
+    }
+
+    /*
+     * Expansão total: CSS Grid (mais estável que só flex) + altura real em px via JS (syncPinturaOverlayHeight).
+     */
+    body.page-pintura #pinturaOverlay.pintura-overlay--fullscreen {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: auto minmax(0, 1fr) !important;
+        align-content: stretch !important;
+        left: 0 !important;
+        top: 0 !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100vw !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        flex-direction: unset !important;
+        z-index: 100002 !important;
+        padding: 12px;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        background: transparent !important;
+    }
+
+    body.page-pintura #pinturaOverlay.pintura-overlay--fullscreen #pinturaTopbar {
+        grid-row: 1;
+        grid-column: 1;
+        min-width: 0;
+    }
+
+    body.page-pintura #pinturaOverlay.pintura-overlay--fullscreen #pinturaBody {
+        grid-row: 2;
+        grid-column: 1;
+        min-height: 0 !important;
+        max-height: none !important;
+        flex: unset !important;
+        margin-top: 10px !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body.page-pintura #pinturaOverlay.pintura-overlay--fullscreen #pinturaCalendarWrap {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+    }
+
+    body.page-pintura #pinturaOverlay.pintura-overlay--fullscreen #pinturaGrid {
+        flex: 1 1 0 !important;
+        min-height: 200px !important;
+    }
+
+    #pinturaTopbarActions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    #pinturaFullscreenBtn.pintura-btn--toggle[aria-pressed="true"] {
+        border-color: rgba(34, 211, 238, 0.55);
+        background: linear-gradient(165deg, rgba(34, 211, 238, 0.28) 0%, rgba(6, 182, 212, 0.14) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            0 10px 24px rgba(0, 0, 0, 0.25);
+        color: #e0fffd;
+    }
+</style>
+{% endblock %}
+
+{% block main_class %}main-shell--fluid{% endblock %}
+
+{% block content %}
+<p class="sr-only">Pintura Epox: use o painel fixo sobre o conteúdo. Texto e cores ficam em cada dia do calendário.</p>
+{% endblock %}
+
+{% block body_overlay %}
+<div id="pinturaOverlay" aria-label="Calendario Pintura Epox">
+    <div id="pinturaTopbar" class="pcp-card">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0;">
+            <div style="display:flex; flex-direction:column; min-width:0;">
+                <div style="font-family: var(--font-display); letter-spacing:0.10em; text-transform:uppercase; font-size:1.05rem; color:var(--text); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span>Pintura Epox</span>
+                    <span title="Se este número não aparecer ou for antigo, o navegador ou o servidor não está a usar o template atual." style="font-size:0.62rem; font-weight:900; letter-spacing:0.14em; padding:4px 8px; border-radius:999px; border:1px solid rgba(34,211,238,0.45); color:#7ee8ff; background:rgba(34,211,238,0.12);">UI {{ pintura_ui_rev|default:"?" }}</span>
+                </div>
+                <div style="font-family: var(--font-ui); font-weight:700; color:var(--muted); font-size:0.78rem; margin-top:2px;">
+                    Escreva dentro de cada dia • botão ☰ = cor
+                </div>
+            </div>
+        </div>
+
+        <div id="pinturaMonthNav">
+            <button class="btn" type="button" id="pinturaPrevMonth" aria-label="Mes anterior">◀</button>
+            <div id="pinturaMonthLabel">--</div>
+            <button class="btn" type="button" id="pinturaNextMonth" aria-label="Proximo mes">▶</button>
+        </div>
+
+        <div id="pinturaTopbarActions">
+            <button class="btn pintura-btn--toggle" type="button" id="pinturaFullscreenBtn" aria-pressed="false" title="Usa a janela inteira por cima do menu">Expansão total</button>
+            <div id="pinturaSavedLabel">Salvo automaticamente</div>
+        </div>
+    </div>
+
+    <div id="pinturaBody">
+        <div id="pinturaCalendarWrap">
+            <div id="pinturaWeekdays" aria-hidden="true">
+                <div class="pintura-weekday">Seg</div>
+                <div class="pintura-weekday">Ter</div>
+                <div class="pintura-weekday">Qua</div>
+                <div class="pintura-weekday">Qui</div>
+                <div class="pintura-weekday">Sex</div>
+                <div class="pintura-weekday">Sab</div>
+                <div class="pintura-weekday">Dom</div>
+            </div>
+            <div id="pinturaGrid" role="grid" aria-label="Calendario"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const LS_BLOCKS_KEY = "cmc_pintura_epox_blocks_v1";
+        const LS_MONTH_KEY = "cmc_pintura_epox_month_v1";
+        const LS_FULLSCREEN_KEY = "cmc_pintura_epox_fullscreen_v2";
+
+        const COLOR_PRESETS = {
+            azul: { color: "#3b82f6" },
+            verde: { color: "#34d399" },
+            amarelo: { color: "#fbbf24" },
+            vermelho: { color: "#ef4444" },
+        };
+
+        const COLOR_ORDER = ["azul", "verde", "amarelo", "vermelho"];
+
+        const pad2 = (n) => String(n).padStart(2, "0");
+        const dateKeyFn = (y, m0, d) => `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+
+        function parseJSONSafe(raw, fallback) {
+            try {
+                if (!raw) return fallback;
+                return JSON.parse(raw);
+            } catch (e) {
+                return fallback;
+            }
+        }
+
+        function formatMonthLabel(year, monthIndex) {
+            const monthNames = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            return `${monthNames[monthIndex]} ${year}`;
+        }
+
+        function getMondayOffset(jsGetDay) {
+            return (jsGetDay + 6) % 7;
+        }
+
+        const overlay = document.getElementById("pinturaOverlay");
+        const grid = document.getElementById("pinturaGrid");
+        const monthLabel = document.getElementById("pinturaMonthLabel");
+        const savedLabel = document.getElementById("pinturaSavedLabel");
+        const prevMonthBtn = document.getElementById("pinturaPrevMonth");
+        const nextMonthBtn = document.getElementById("pinturaNextMonth");
+        const fullscreenBtn = document.getElementById("pinturaFullscreenBtn");
+
+        const state = {
+            blocks: parseJSONSafe(localStorage.getItem(LS_BLOCKS_KEY), {}),
+            month: { year: null, monthIndex: null },
+            _saveTimer: null,
+        };
+
+        const savedMonth = parseJSONSafe(localStorage.getItem(LS_MONTH_KEY), null);
+        if (savedMonth && Number.isFinite(savedMonth.year) && Number.isFinite(savedMonth.monthIndex)) {
+            state.month.year = savedMonth.year;
+            state.month.monthIndex = savedMonth.monthIndex;
+        } else {
+            const now = new Date();
+            state.month.year = now.getFullYear();
+            state.month.monthIndex = now.getMonth();
+        }
+
+        function persistBlocks() {
+            localStorage.setItem(LS_BLOCKS_KEY, JSON.stringify(state.blocks || {}));
+            const now = new Date();
+            if (savedLabel) {
+                savedLabel.textContent = `Salvo automaticamente em ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+            }
+        }
+
+        function schedulePersist() {
+            if (state._saveTimer) clearTimeout(state._saveTimer);
+            state._saveTimer = setTimeout(persistBlocks, 250);
+        }
+
+        function effectiveBlock(block) {
+            if (!block) return null;
+            const txt = typeof block.text === "string" ? block.text : "";
+            const hasText = txt.trim().length > 0;
+            const c = block.color && COLOR_PRESETS[block.color] ? block.color : null;
+            const colorPreset = c ? COLOR_PRESETS[c] : hasText ? COLOR_PRESETS.azul : null;
+            return { text: txt, colorKey: c || (hasText ? "azul" : null), colorPreset };
+        }
+
+        function applyBlockToDayEl(dayEl, block) {
+            const eff = effectiveBlock(block);
+            const barEl = dayEl.querySelector(".pintura-day__colorbar");
+            const ta = dayEl.querySelector(".pintura-day__input");
+
+            if (barEl) barEl.style.background = eff && eff.colorPreset ? eff.colorPreset.color : "transparent";
+            dayEl.classList.toggle("pintura-day--colored", !!(eff && eff.colorPreset));
+            dayEl.style.setProperty("--color", eff && eff.colorPreset ? eff.colorPreset.color : "#3b82f6");
+
+            if (ta && eff) ta.value = eff.text;
+            else if (ta) ta.value = "";
+
+            updateMenuActive(dayEl, eff ? eff.colorKey : null);
+        }
+
+        function updateMenuActive(dayEl, colorKey) {
+            dayEl.querySelectorAll(".pintura-day__menu-item[data-color]").forEach((item) => {
+                const k = item.getAttribute("data-color");
+                item.classList.toggle("pintura-day__menu-item--active", !!colorKey && colorKey === k);
+            });
+        }
+
+        function setBlockForDay(dk, partial) {
+            if (!dk) return;
+            const prev = state.blocks[dk] || { text: "", color: null };
+            const next = Object.assign({}, prev, partial || {});
+            if (next.color && !COLOR_PRESETS[next.color]) next.color = null;
+
+            const hasText = typeof next.text === "string" && next.text.trim().length > 0;
+            let hasColor = !!next.color;
+            if (!hasText && !hasColor) {
+                delete state.blocks[dk];
+                return;
+            }
+            if (hasText && !hasColor) {
+                next.color = "azul";
+                hasColor = true;
+            }
+            state.blocks[dk] = {
+                text: hasText ? next.text : "",
+                color: hasColor ? next.color : null,
+            };
+        }
+
+        function removeBlockForDay(dk) {
+            if (!dk) return;
+            delete state.blocks[dk];
+        }
+
+        function closeAllMenus() {
+            document.querySelectorAll(".pintura-day__menu.is-open").forEach((menu) => {
+                menu.classList.remove("is-open");
+                const btn = menu.previousElementSibling;
+                if (btn && btn.classList.contains("pintura-day__menu-btn")) btn.setAttribute("aria-expanded", "false");
+            });
+        }
+
+        function menuItemsHtml() {
+            const labels = { azul: "Azul", verde: "Verde", amarelo: "Amarelo", vermelho: "Vermelho" };
+            const sw = { azul: "#3b82f6", verde: "#34d399", amarelo: "#fbbf24", vermelho: "#ef4444" };
+            return (
+                COLOR_ORDER.map(
+                    (k) =>
+                        `<button type="button" class="pintura-day__menu-item" role="menuitem" data-color="${k}">` +
+                        `<span class="pintura-day__menu-swatch" style="background:${sw[k]}"></span>` +
+                        `<span>${labels[k]}</span></button>`
+                ).join("") +
+                `<button type="button" class="pintura-day__menu-item pintura-day__menu-clear" role="menuitem" data-action="clear">Limpar bloco</button>`
+            );
+        }
+
+        function bindDayCell(dayEl, dateStr) {
+            const menuBtn = dayEl.querySelector(".pintura-day__menu-btn");
+            const menu = dayEl.querySelector(".pintura-day__menu");
+            const ta = dayEl.querySelector(".pintura-day__input");
+
+            menuBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                const willOpen = !menu.classList.contains("is-open");
+                closeAllMenus();
+                if (willOpen) {
+                    menu.classList.add("is-open");
+                    menuBtn.setAttribute("aria-expanded", "true");
+                }
+            });
+
+            menu.addEventListener("click", function (e) {
+                e.stopPropagation();
+            });
+
+            menu.querySelectorAll(".pintura-day__menu-item[data-color]").forEach((item) => {
+                item.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    const k = item.getAttribute("data-color");
+                    setBlockForDay(dateStr, { color: k });
+                    applyBlockToDayEl(dayEl, state.blocks[dateStr] || {});
+                    closeAllMenus();
+                    schedulePersist();
+                });
+            });
+
+            const clearBtn = menu.querySelector(".pintura-day__menu-clear");
+            if (clearBtn) {
+                clearBtn.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    removeBlockForDay(dateStr);
+                    if (ta) ta.value = "";
+                    applyBlockToDayEl(dayEl, null);
+                    closeAllMenus();
+                    schedulePersist();
+                });
+            }
+
+            ta.addEventListener("input", function () {
+                setBlockForDay(dateStr, { text: ta.value || "" });
+                applyBlockToDayEl(dayEl, state.blocks[dateStr] || {});
+                schedulePersist();
+            });
+        }
+
+        document.addEventListener("click", function () {
+            closeAllMenus();
+        });
+
+        function renderMonth() {
+            if (!grid) return;
+            const year = state.month.year;
+            const monthIndex = state.month.monthIndex;
+            const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+            const firstDayOfWeekOffset = getMondayOffset(new Date(year, monthIndex, 1).getDay());
+
+            if (monthLabel) monthLabel.textContent = formatMonthLabel(year, monthIndex);
+
+            grid.innerHTML = "";
+            const itemsHtml = menuItemsHtml();
+
+            for (let i = 0; i < 42; i++) {
+                const dayNum = i - firstDayOfWeekOffset + 1;
+                const dateStr = dayNum >= 1 && dayNum <= daysInMonth ? dateKeyFn(year, monthIndex, dayNum) : null;
+
+                const dayEl = document.createElement("div");
+                dayEl.className = dateStr ? "pintura-day pcp-card" : "pintura-day";
+                if (!dateStr) dayEl.classList.add("pintura-day--empty");
+                if (dateStr) dayEl.setAttribute("data-date", dateStr);
+
+                if (dateStr) {
+                    dayEl.innerHTML =
+                        `<div class="pintura-day__top">` +
+                        `<div class="pintura-day__num">${dayNum}</div>` +
+                        `<div class="pintura-day__menu-wrap">` +
+                        `<button type="button" class="pintura-day__menu-btn" aria-label="Menu de cores deste dia" aria-expanded="false" aria-haspopup="true">&#9776;</button>` +
+                        `<div class="pintura-day__menu" role="menu">${itemsHtml}</div>` +
+                        `</div></div>` +
+                        `<div class="pintura-day__colorbar" aria-hidden="true"></div>` +
+                        `<textarea class="pintura-day__input" rows="6" placeholder="Escreva aqui neste dia…" aria-label="Anotações do dia ${dayNum}"></textarea>`;
+
+                    bindDayCell(dayEl, dateStr);
+
+                    const block = state.blocks[dateStr] || null;
+                    if (block && (block.color || (block.text && block.text.trim()))) {
+                        applyBlockToDayEl(dayEl, block);
+                    } else {
+                        applyBlockToDayEl(dayEl, null);
+                    }
+                } else {
+                    dayEl.innerHTML =
+                        `<div class="pintura-day__num"></div>` +
+                        `<div class="pintura-day__colorbar" aria-hidden="true" style="opacity:0"></div>`;
+                }
+
+                grid.appendChild(dayEl);
+            }
+        }
+
+        function saveMonthToLS() {
+            localStorage.setItem(LS_MONTH_KEY, JSON.stringify(state.month));
+        }
+
+        function syncPinturaOverlayHeight() {
+            if (!overlay || !overlay.classList.contains("pintura-overlay--fullscreen")) return;
+            var h = window.innerHeight || document.documentElement.clientHeight || 600;
+            overlay.style.height = h + "px";
+            overlay.style.maxHeight = h + "px";
+        }
+
+        function onWindowResizePintura() {
+            syncPinturaOverlayHeight();
+        }
+
+        function applyFullscreen(on) {
+            if (!overlay) return;
+            window.removeEventListener("resize", onWindowResizePintura);
+            document.documentElement.classList.toggle("pintura-expanded-lock", !!on);
+            document.body.classList.toggle("pintura-expanded-lock", !!on);
+            overlay.classList.toggle("pintura-overlay--fullscreen", !!on);
+            if (on) {
+                syncPinturaOverlayHeight();
+                window.addEventListener("resize", onWindowResizePintura, { passive: true });
+            } else {
+                overlay.style.height = "";
+                overlay.style.maxHeight = "";
+            }
+            if (fullscreenBtn) {
+                fullscreenBtn.setAttribute("aria-pressed", on ? "true" : "false");
+                fullscreenBtn.textContent = on ? "Sair da expansão" : "Expansão total";
+                fullscreenBtn.title = on ? "Voltar ao modo que deixa o menu lateral visível" : "Tela cheia: cobre menu lateral e barra superior";
+            }
+            try {
+                localStorage.setItem(LS_FULLSCREEN_KEY, on ? "1" : "0");
+            } catch (e) {}
+            requestAnimationFrame(function () {
+                syncPinturaOverlayHeight();
+                renderMonth();
+            });
+        }
+
+        if (fullscreenBtn && overlay) {
+            var savedFull = localStorage.getItem(LS_FULLSCREEN_KEY) === "1";
+            applyFullscreen(savedFull);
+            fullscreenBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                applyFullscreen(!overlay.classList.contains("pintura-overlay--fullscreen"));
+            });
+        }
+
+        if (prevMonthBtn) prevMonthBtn.addEventListener("click", function () {
+            state.month.monthIndex -= 1;
+            if (state.month.monthIndex < 0) {
+                state.month.monthIndex = 11;
+                state.month.year -= 1;
+            }
+            saveMonthToLS();
+            renderMonth();
+        });
+
+        if (nextMonthBtn) nextMonthBtn.addEventListener("click", function () {
+            state.month.monthIndex += 1;
+            if (state.month.monthIndex > 11) {
+                state.month.monthIndex = 0;
+                state.month.year += 1;
+            }
+            saveMonthToLS();
+            renderMonth();
+        });
+
+        document.addEventListener("keydown", function (ev) {
+            if (ev.key === "Escape") {
+                closeAllMenus();
+                if (overlay && overlay.classList.contains("pintura-overlay--fullscreen")) {
+                    applyFullscreen(false);
+                }
+            }
+        });
+
+        if (document.body && overlay) document.body.classList.add("pintura-lock-scroll");
+
+        renderMonth();
+    })();
+</script>
+{% endblock %}
+

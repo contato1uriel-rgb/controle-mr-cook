@@ -1,0 +1,288 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Relações • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Relações • Importar e coluna OK{% endblock %}
+{% block breadcrumb %}Módulos{% endblock %}
+{% block page_heading %}Relações{% endblock %}
+{% block page_heading_meta %}Planilhas, coluna OK e visão geral{% endblock %}
+{% block topbar_right_actions %}
+<a class="btn btn-accent" href="{% url 'relacoes_visao_geral' %}">VISÃO GERAL</a>
+<a class="btn btn-accent" href="{% url 'odfs_movimentar' %}">ODFS A MOVIMENTAR</a>
+<a class="btn" href="{% url 'distribuir_operacao' %}">DISTRIBUIR OPERAÇÃO</a>
+<button class="btn btn-accent" type="button" id="btnNovaRelacao">+ ADICIONAR RELAÇÃO</button>
+{% endblock %}
+
+{% block main_class %}main-shell main-shell--fluid{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Relações deve ficar com destaque laranja (MEGA permanece azul) */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+    }
+</style>
+{% include "producao/includes/relacoes_app_styles.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="relacoes-app">
+    <aside class="relacoes-sidebar">
+        {% include "producao/includes/relacoes_sidebar.html" %}
+    </aside>
+
+    <section class="relacoes-main" aria-label="Área principal">
+        <div class="relacoes-toolbar">
+            <span class="muted" style="font-size:0.82rem;">Ações da relação selecionada</span>
+            <button class="btn" type="button" id="btnEditarNome" disabled>Renomear</button>
+            <button class="btn btn-danger-outline" type="button" id="btnExcluirRelacao" disabled>Excluir</button>
+        </div>
+
+        {% if erro %}
+            <div class="error">{{ erro }}</div>
+        {% endif %}
+
+        <div class="relacoes-panel">
+            <form method="get" class="relacoes-filters">
+                <div class="field">
+                    <label for="filtro-busca">Busca</label>
+                    <input id="filtro-busca" type="text" name="q" placeholder="Pesquisar em qualquer coluna…" value="{{ q }}" />
+                </div>
+                <div class="field">
+                    <label for="filtro-ok">Filtro OK</label>
+                    <select id="filtro-ok" name="ok" aria-label="Filtro OK">
+                        <option value="tudo" {% if ok_filtro == 'tudo' %}selected{% endif %}>Tudo</option>
+                        <option value="ok" {% if ok_filtro == 'ok' %}selected{% endif %}>Marcados</option>
+                        <option value="pendente" {% if ok_filtro == 'pendente' %}selected{% endif %}>Pendentes</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="filtro-de">Data (de)</label>
+                    <input id="filtro-de" type="date" name="de" value="{{ de }}" />
+                </div>
+                <div class="field">
+                    <label for="filtro-ate">Data (até)</label>
+                    <input id="filtro-ate" type="date" name="ate" value="{{ ate }}" />
+                </div>
+                <input type="hidden" name="aba" value="{{ aba }}" />
+                <div class="field" style="grid-column: 1 / -1; display:flex; justify-content:flex-end; align-items:flex-end;">
+                    <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+                </div>
+            </form>
+
+            <p class="muted" style="margin:0; font-size:0.86rem;">
+                Cole a tabela do Excel ao criar uma relação, edite a coluna OK e acompanhe o percentual de conclusão na lista ao lado.
+            </p>
+        </div>
+
+        <div class="relacoes-empty">
+            Selecione uma relação na lista à esquerda para abrir o detalhe, ou use <strong>+ Adicionar nova relação</strong> para importar do Excel.
+        </div>
+    </section>
+</div>
+
+<div class="modal-backdrop" id="modalEditarNome" role="dialog" aria-modal="true" aria-label="Editar nome da relação">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Editar nome</h3>
+            <button class="xbtn" type="button" id="btnFecharModalEditar">Fechar</button>
+        </div>
+        <form method="post" id="formEditarNome">
+            {% csrf_token %}
+            <label class="muted" style="display:block; font-size:0.85rem; margin-bottom:6px;">Novo nome</label>
+            <input type="text" name="nome" id="editarNomeInput" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);" />
+            <div class="modal-actions">
+                <button class="btn" type="button" id="btnCancelarModalEditar">Cancelar</button>
+                <button class="btn btn-accent" type="submit">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="modalExcluirRelacao" role="dialog" aria-modal="true" aria-label="Excluir relação">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Excluir relação</h3>
+            <button class="xbtn" type="button" id="btnFecharModalExcluir">Fechar</button>
+        </div>
+        <div class="muted" style="margin: 8px 0 10px;">
+            Tem certeza que deseja excluir <strong id="excluirNome"></strong>? Essa ação não pode ser desfeita.
+        </div>
+        <form method="post" id="formExcluirRelacao">
+            {% csrf_token %}
+            <div class="modal-actions">
+                <button class="btn" type="button" id="btnCancelarModalExcluir">Cancelar</button>
+                <button class="btn btn-accent" type="submit">Excluir</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="modalNovaRelacao" role="dialog" aria-modal="true" aria-label="Nova Relação">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Nova Relação</h3>
+            <button class="xbtn" type="button" id="btnFecharModal">Fechar</button>
+        </div>
+        <div class="muted" style="margin-bottom: 10px;">
+            Cole a tabela (Excel) completa para importar todas as colunas.
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <label class="muted" style="display:block; font-size:0.85rem; margin-bottom:6px;">Nome da relação</label>
+            <input type="text" name="nome" placeholder="Ex.: RELAÇÃO 03/2026" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);" />
+
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:10px 0 6px;">
+                <label class="muted" for="id_colagem_relacao" style="font-size:0.85rem; margin:0;">Colagem (Excel)</label>
+                <button class="btn" type="button" id="btnExpandirColagem" aria-expanded="false" aria-controls="id_colagem_relacao">
+                    Expandir tabela
+                </button>
+            </div>
+            <textarea id="id_colagem_relacao" name="colagem" placeholder="Cole aqui (Ctrl+V)…" required style="width:100%;min-height:140px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);"></textarea>
+
+            <div class="modal-actions">
+                <button class="btn" type="button" id="btnCancelarModal">Cancelar</button>
+                <button class="btn btn-accent" type="submit">Salvar relação</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const modal = document.getElementById("modalNovaRelacao");
+        if (!modal) return;
+
+        const openBtn = document.getElementById("btnNovaRelacao");
+        const closeBtn = document.getElementById("btnFecharModal");
+        const cancelBtn = document.getElementById("btnCancelarModal");
+
+        function open() {
+            modal.style.display = "flex";
+            const nomeInput = modal.querySelector('input[name="nome"]');
+            if (nomeInput) nomeInput.focus();
+        }
+        function close() {
+            modal.style.display = "none";
+            modal.classList.remove("modal--colagem-expandida");
+            const btnEx = document.getElementById("btnExpandirColagem");
+            if (btnEx) {
+                btnEx.setAttribute("aria-expanded", "false");
+                btnEx.textContent = "Expandir tabela";
+            }
+        }
+
+        if (openBtn) openBtn.addEventListener("click", open);
+        if (closeBtn) closeBtn.addEventListener("click", close);
+        if (cancelBtn) cancelBtn.addEventListener("click", close);
+        modal.addEventListener("click", function (e) {
+            if (e.target === modal) close();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") close();
+        });
+
+        var params = new URLSearchParams(window.location.search);
+        if (params.get("novo") === "1" || params.get("novo") === "true") {
+            open();
+            params.delete("novo");
+            var rest = params.toString();
+            var path = window.location.pathname + (rest ? "?" + rest : "") + window.location.hash;
+            window.history.replaceState({}, "", path);
+        }
+
+        var btnExpandirColagem = document.getElementById("btnExpandirColagem");
+        if (btnExpandirColagem && modal) {
+            btnExpandirColagem.addEventListener("click", function () {
+                var expanded = modal.classList.toggle("modal--colagem-expandida");
+                btnExpandirColagem.setAttribute("aria-expanded", expanded ? "true" : "false");
+                btnExpandirColagem.textContent = expanded ? "Recolher tabela" : "Expandir tabela";
+            });
+        }
+    })();
+</script>
+
+<script>
+    (function () {
+        const cards = Array.from(document.querySelectorAll(".relacoes-sidebar-card[data-relacao-id]"));
+        const btnEditar = document.getElementById("btnEditarNome");
+        const btnExcluir = document.getElementById("btnExcluirRelacao");
+
+        const modalEditar = document.getElementById("modalEditarNome");
+        const modalExcluir = document.getElementById("modalExcluirRelacao");
+        const formEditar = document.getElementById("formEditarNome");
+        const formExcluir = document.getElementById("formExcluirRelacao");
+        const inputNome = document.getElementById("editarNomeInput");
+        const excluirNome = document.getElementById("excluirNome");
+
+        let selected = null;
+
+        function setSelected(el) {
+            cards.forEach(c => c.classList.remove("is-selected"));
+            selected = el;
+            if (selected) selected.classList.add("is-selected");
+            const has = !!selected;
+            btnEditar.disabled = !has;
+            btnExcluir.disabled = !has;
+        }
+
+        cards.forEach(el => {
+            el.addEventListener("click", function (e) {
+                if (e.ctrlKey || e.metaKey) return;
+                if (selected === el) return;
+                e.preventDefault();
+                setSelected(el);
+            });
+        });
+
+        function openModal(modalEl) { modalEl.style.display = "flex"; }
+        function closeModal(modalEl) { modalEl.style.display = "none"; }
+
+        function wireClose(modalEl, btnIds) {
+            btnIds.forEach(id => {
+                const b = document.getElementById(id);
+                if (b) b.addEventListener("click", () => closeModal(modalEl));
+            });
+            modalEl.addEventListener("click", (e) => { if (e.target === modalEl) closeModal(modalEl); });
+        }
+
+        wireClose(modalEditar, ["btnFecharModalEditar", "btnCancelarModalEditar"]);
+        wireClose(modalExcluir, ["btnFecharModalExcluir", "btnCancelarModalExcluir"]);
+
+        btnEditar.addEventListener("click", function () {
+            if (!selected) return;
+            const nome = selected.getAttribute("data-relacao-nome") || "";
+            const url = selected.getAttribute("data-relacao-renomear-url");
+            inputNome.value = nome;
+            formEditar.action = url;
+            openModal(modalEditar);
+        });
+
+        btnExcluir.addEventListener("click", function () {
+            if (!selected) return;
+            const nome = selected.getAttribute("data-relacao-nome") || "";
+            const url = selected.getAttribute("data-relacao-excluir-url");
+            excluirNome.textContent = nome;
+            formExcluir.action = url;
+            openModal(modalExcluir);
+        });
+
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+                closeModal(modalEditar);
+                closeModal(modalExcluir);
+            }
+        });
+    })();
+</script>
+{% endblock %}

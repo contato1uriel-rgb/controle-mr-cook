@@ -1,0 +1,167 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Distribuir Operação • CONTROLE MR. COOK{% endblock %}
+
+{% block extra_head %}
+<style>
+    .cats { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 12px; }
+    .catbtn {
+        padding:8px 10px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        background:var(--panel2);
+        text-decoration:none;
+        font-size:0.82rem;
+        color:var(--text);
+    }
+    .catbtn.active { border-color: var(--primary); color: var(--primary); }
+
+    .layout { display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+
+    .rels { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    .relcard {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        border-radius: 16px;
+        padding: 12px 14px;
+        text-decoration:none;
+        display:block;
+    }
+    .relcard.active { border-color: var(--primary); }
+    .meter { margin-top:8px; height:10px; border-radius:999px; background: color-mix(in srgb, var(--border) 55%, transparent); overflow:hidden; }
+    .meter > div { height:100%; background: linear-gradient(90deg, var(--ok), color-mix(in srgb, var(--ok) 40%, var(--primary))); }
+
+    table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    th, td { padding:8px 6px; border-bottom:1px solid var(--border); text-align:left; }
+    th { color:var(--muted); font-weight:500; }
+    input[type="text"] {
+        width:100%;
+        padding: 9px 11px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--panel2);
+        color: var(--text);
+        font-size: 0.88rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div>
+                <h2 style="margin:0 0 6px;">Preparar folha para imprimir</h2>
+                <div class="muted">Selecione uma categoria, escolha uma relação e imprima a folha pronta.</div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                {% if categorias_atuais and relacao_atual %}
+                    <button class="btn btn-accent" type="button" id="btnImprimir">Imprimir</button>
+                {% endif %}
+                <a class="btn" href="{% url 'configurar_distribuicao' %}">Configurar distribuição</a>
+                <a class="btn" href="{% url 'home' %}">Voltar</a>
+            </div>
+        </div>
+
+        <div class="cats" aria-label="Categoria para imprimir">
+            {% for c in categorias_ui %}
+                <a class="catbtn {% if c.active %}active{% endif %}"
+                   href="{{ c.href }}">
+                    {{ c.nome }}
+                </a>
+            {% empty %}
+                <span class="muted">Cadastre categorias em “Configurar distribuição”.</span>
+            {% endfor %}
+        </div>
+
+        <div class="layout">
+            <section>
+                <h3 style="margin:0 0 8px;">Relações</h3>
+                <div class="rels">
+                    {% for r in relacoes %}
+                        <a class="relcard {% if relacao_atual and r.id == relacao_atual.id %}active{% endif %}"
+                           href="?{% if categoria_atual %}cat={{ categoria_atual.id }}&{% endif %}rel={{ r.id }}">
+                            <div style="display:flex; justify-content:space-between; gap:10px;">
+                                <div>
+                                    <div style="font-weight:700; letter-spacing:0.04em;">{{ r.nome }}</div>
+                                    <div class="muted" style="font-size:0.78rem;">{{ r.criada_em|date:"d/m/Y H:i" }}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-weight:700;">{{ r.progresso_itens_ok|floatformat:0 }}%</div>
+                                    <div class="muted" style="font-size:0.78rem;">OK</div>
+                                </div>
+                            </div>
+                            <div class="meter"><div style="width: {{ r.progresso_itens_ok|floatformat:0 }}%;"></div></div>
+                        </a>
+                    {% empty %}
+                        <div class="muted">Nenhuma relação cadastrada.</div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section>
+                <h3 style="margin:0 0 8px;">Resumo por categoria</h3>
+
+                {% if categorias_atuais and relacao_atual %}
+                    <div class="muted" style="font-size:0.82rem; margin-bottom:8px;">
+                        Categorias selecionadas:
+                        {% for c in categorias_atuais %}
+                            <strong>{{ c.nome }}</strong>{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Descrição</th>
+                                <th style="width:120px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in resumo %}
+                                <tr>
+                                    <td>{{ row.descricao }}</td>
+                                    <td>{{ row.total|floatformat:2 }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="2" class="muted">Sem itens nessa categoria.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top:12px;">
+                        <label class="muted" style="display:block; font-size:0.82rem; margin-bottom:6px;">Entregue a produção por:</label>
+                        <input type="text" id="entregue_por" placeholder="Assinatura" />
+                        <div class="muted" style="font-size:0.78rem; margin-top:6px;">
+                            A impressão mostra apenas as categorias marcadas. O rodapé com assinatura sai no final da folha.
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+                        <div class="muted" style="font-size:0.78rem;">
+                            Use o botão “Imprimir” no topo.
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="muted">Selecione uma ou mais categorias e uma relação para ver o resumo.</div>
+                {% endif %}
+            </section>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const btn = document.getElementById("btnImprimir");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+            const entregue = document.getElementById("entregue_por").value || "";
+            const params = new URLSearchParams(window.location.search);
+            params.set("entregue_por", entregue);
+            const url = "{% url 'distribuir_imprimir' %}?" + params.toString();
+            window.open(url, "_blank");
+        });
+    })();
+</script>
+{% endblock %}
+

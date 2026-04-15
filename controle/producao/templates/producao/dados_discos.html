@@ -1,0 +1,86 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Dados de Discos • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}PCP • Dados de Discos{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Dados de Discos{% endblock %}
+{% block page_heading_meta %}Base editável Cód. x Razão social{% endblock %}
+
+{% block topbar_right_actions %}
+<a class="btn" href="{% url 'discos' %}">Voltar a Discos</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dd-wrap { max-width: 1100px; margin: 0 auto; }
+    .dd-box {
+        border:1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding:12px 14px;
+    }
+    .dd-table-wrap { margin-top:10px; border:1px solid var(--border); border-radius:8px; overflow:auto; }
+    .dd-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .dd-table th, .dd-table td { border-bottom:1px solid var(--border); padding:8px 9px; text-align:left; }
+    .dd-table th { position:sticky; top:0; background:var(--surface-2); color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; }
+    .dd-table input { width:100%; padding:7px 8px; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,0.12); color:var(--text); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+    .dd-add { display:grid; grid-template-columns: 220px 1fr auto; gap:8px; margin-top:10px; align-items:end; }
+    @media (max-width: 900px) { .dd-add { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dd-wrap">
+    <div class="cp-help">Base convertida do arquivo <code>{{ base_seed_path }}</code>. Você pode editar e adicionar novos registros.</div>
+    {% if erro_seed %}<div class="cp-help" style="margin-top:6px; color:#fca5a5;">{{ erro_seed }}</div>{% endif %}
+    {% if saved_notice %}<div class="cp-help" style="margin-top:6px; color:#86efac;">Alterações salvas.</div>{% endif %}
+    {% if added_notice %}<div class="cp-help" style="margin-top:6px; color:#86efac;">Novo registro adicionado.</div>{% endif %}
+
+    <div class="dd-box" style="margin-top:12px;">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="salvar" />
+            <div class="dd-table-wrap">
+                <table class="dd-table">
+                    <thead>
+                        <tr>
+                            <th>Cód. (coluna A)</th>
+                            <th>Razão social</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rows %}
+                            <tr>
+                                <td><input type="text" name="row_{{ r.id }}_cod" value="{{ r.cod }}" /></td>
+                                <td><input type="text" name="row_{{ r.id }}_razao_social" value="{{ r.razao_social }}" /></td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="2" class="cp-help">Sem dados cadastrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+                <button class="btn btn-accent" type="submit">Salvar alterações</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="dd-box" style="margin-top:12px;">
+        <h3 class="pcp-title" style="margin:0;">Adicionar novo registro</h3>
+        <form method="post" class="dd-add">
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="adicionar" />
+            <input type="text" name="novo_cod" placeholder="Cód. (coluna A)" required />
+            <input type="text" name="novo_razao_social" placeholder="Razão social" />
+            <button class="btn btn-accent" type="submit">Adicionar</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,432 @@
+{% extends "producao/base.html" %}
+{% load l10n %}
+
+{% block title %}Visão Geral • Relações{% endblock %}
+{% block subtitle %}Relações em aberto{% endblock %}
+{% block breadcrumb %}Relações{% endblock %}
+{% block page_heading %}Visão geral{% endblock %}
+{% block page_heading_meta %}Relações não finalizadas · OK qtd vs itens{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Relações com destaque laranja (MEGA permanece azul via mega-scope) */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+    }
+
+    .vg-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+    }
+    .vg-toolbar h2 {
+        margin: 0;
+        font-family: var(--font-display);
+        letter-spacing: 0.08em;
+        font-size: 1rem;
+        font-weight: 400;
+        color: var(--text);
+        text-transform: uppercase;
+    }
+
+    .vg-compare {
+        margin-bottom: 24px;
+        padding: 22px 24px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        transition: box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+    .vg-compare:hover {
+        box-shadow: var(--shadow-card-hover);
+        border-color: rgba(249, 115, 22, 0.18);
+    }
+    .vg-compare__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    .vg-compare__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 0.78rem;
+        font-weight: 400;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .vg-kpis {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .vg-kpi {
+        padding: 10px 16px;
+        border-radius: var(--radius-btn);
+        border: 1px solid rgba(249, 115, 22, 0.18);
+        background: linear-gradient(165deg, rgba(249, 115, 22, 0.12) 0%, rgba(249, 115, 22, 0.03) 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.35);
+        min-width: 140px;
+    }
+    .vg-kpi span {
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+    .vg-kpi strong {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 1.25rem;
+        color: var(--accent);
+    }
+    .vg-chart-wrap {
+        position: relative;
+        width: 100%;
+    }
+    .vg-chart-wrap canvas { display: block; }
+
+    .vg-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+        padding: 8px 4px 20px;
+    }
+    @media (max-width: 980px) { .vg-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .vg-grid { grid-template-columns: 1fr; } }
+
+    .cardrel {
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: var(--radius-card);
+        padding: 20px 20px 22px;
+        text-decoration: none;
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        color: inherit;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26),
+            inset 4px 0 0 var(--accent);
+        transition: transform 0.22s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+    .cardrel:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-card-hover), inset 4px 0 0 var(--accent);
+        border-color: rgba(249, 115, 22, 0.18);
+    }
+
+    .top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    .top > div:first-child { min-width: 0; flex: 1 1 auto; }
+    .name {
+        font-family: var(--font-ui);
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        color: var(--text);
+        font-size: 1.02rem;
+        line-height: 1.45;
+    }
+    .meta {
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-top: 8px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        font-family: var(--font-ui);
+    }
+
+    .pct {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 1.2rem;
+        flex: 0 0 auto;
+        white-space: nowrap;
+        color: var(--accent);
+        text-shadow: none;
+    }
+    .pies { margin-top: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    @media (max-width: 760px) { .pies { grid-template-columns: 1fr; } }
+    .piebox {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-btn);
+        padding: 12px 12px;
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.14) 0%, rgba(210, 220, 236, 0.06) 100%);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 12px 22px rgba(0, 0, 0, 0.24);
+    }
+    .piehead { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+    .pielabel {
+        font-family: var(--font-ui);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        color: var(--muted);
+    }
+    .piepct { font-family: var(--font-display); font-weight: 400; font-size: 0.95rem; color: var(--accent); }
+    .piewrap { display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .pie {
+        --value: 0;
+        --pie-color: var(--accent);
+        width: 88px;
+        height: 88px;
+        border-radius: 50%;
+        background: conic-gradient(var(--pie-color) calc(var(--value) * 1%), rgba(255, 255, 255, 0.07) 0);
+        position: relative;
+        flex: 0 0 auto;
+        border: 1px solid var(--border);
+    }
+    .pie::after {
+        content: "";
+        position: absolute;
+        inset: 14px;
+        border-radius: 50%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+    }
+    .pievalue {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        z-index: 1;
+        font-size: 0.88rem;
+        font-family: var(--font-display);
+        font-weight: 400;
+        color: var(--text);
+    }
+    .pielegend { display: grid; gap: 6px; min-width: 0; margin-top: 10px; }
+    .legenditem { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.74rem; overflow-wrap: anywhere; word-break: break-word; font-family: var(--font-ui); }
+    .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; border: 1px solid var(--border); }
+    .dot.ok { background: var(--turno-1); }
+    .dot.pend { background: #6b7280; }
+
+    .empty {
+        padding: 28px;
+        border-radius: var(--radius-card);
+        border: 1px dashed var(--border);
+        color: var(--muted);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.14) 0%, rgba(210, 220, 236, 0.06) 100%);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        font-family: var(--font-ui);
+        text-align: center;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="vg-toolbar">
+        <h2>Relações em aberto</h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a class="btn" href="{% url 'relacoes' %}">Voltar</a>
+            <a class="btn btn-accent" href="{% url 'relacoes' %}">Relações</a>
+        </div>
+    </div>
+
+    {% if cards %}
+        <div class="vg-grid">
+            {% for r in cards %}
+                <a class="cardrel" href="{% url 'relacao_detalhe' r.id %}">
+                    <div class="top">
+                        <div>
+                            <div class="name">{{ r.nome }}</div>
+                            <div class="meta">
+                                Liberação: {% if r.liberacao_producao_data %}{{ r.liberacao_producao_data|date:"d/m/Y" }}{% else %}—{% endif %}
+                                · Previsão: {% if r.previsao_data %}{{ r.previsao_data|date:"d/m/Y" }}{% else %}—{% endif %}
+                                · {{ r.ok_itens }}/{{ r.total_itens }} itens OK
+                                · {{ r.ok_qtd|floatformat:0|unlocalize }}/{{ r.total_qtd|floatformat:0|unlocalize }} qtd
+                                {% if r.pedidos_subtitulo %} · Pedidos: {{ r.pedidos_subtitulo }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="pct">{{ r.pct_qtd|floatformat:0 }}%</div>
+                    </div>
+
+                    <div class="pies">
+                        <div class="piebox">
+                            <div class="piehead">
+                                <div class="pielabel">Qtd concluída</div>
+                                <div class="piepct">{{ r.pct_qtd|floatformat:0 }}%</div>
+                            </div>
+                            <div class="piewrap">
+                                <div class="pie" style="--value: {{ r.pct_qtd|floatformat:0 }}; --pie-color: var(--turno-1);">
+                                    <div class="pievalue">{{ r.pct_qtd|floatformat:0 }}%</div>
+                                </div>
+                            </div>
+                            <div class="pielegend">
+                                <div class="legenditem"><span class="dot ok"></span>OK</div>
+                                <div class="legenditem"><span class="dot pend"></span>Pendente</div>
+                            </div>
+                        </div>
+
+                        <div class="piebox">
+                            <div class="piehead">
+                                <div class="pielabel">Itens OK</div>
+                                <div class="piepct">{{ r.pct_itens|floatformat:0 }}%</div>
+                            </div>
+                            <div class="piewrap">
+                                <div class="pie" style="--value: {{ r.pct_itens|floatformat:0 }}; --pie-color: var(--turno-2);">
+                                    <div class="pievalue">{{ r.pct_itens|floatformat:0 }}%</div>
+                                </div>
+                            </div>
+                            <div class="pielegend">
+                                <div class="legenditem"><span class="dot ok" style="background:var(--turno-2);"></span>OK</div>
+                                <div class="legenditem"><span class="dot pend"></span>Restante</div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty">Nenhuma relação em aberto.</div>
+    {% endif %}
+
+    {% if vg_count %}
+    <section class="vg-compare" aria-label="Comparativo entre relações">
+        <div class="vg-compare__head">
+            <div>
+                <p class="vg-compare__title">Comparativo — % concluído (quantidade × itens)</p>
+            </div>
+            <div class="vg-kpis">
+                <div class="vg-kpi">
+                    <span>Média % qtd</span>
+                    <strong>{% if vg_media_pct_qtd is not None %}{{ vg_media_pct_qtd }}%{% else %}—{% endif %}</strong>
+                </div>
+                <div class="vg-kpi">
+                    <span>Média % itens OK</span>
+                    <strong>{% if vg_media_pct_itens is not None %}{{ vg_media_pct_itens }}%{% else %}—{% endif %}</strong>
+                </div>
+            </div>
+        </div>
+        <div class="vg-chart-wrap" style="height: {{ compare_chart_height }}px;">
+            <canvas id="vgCompareChart" aria-label="Gráfico comparativo por relação"></canvas>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if vg_count %}
+    <script>
+    (function () {
+        const rows = {{ compare_chart_json|safe }};
+        const canvas = document.getElementById("vgCompareChart");
+        if (!canvas || !rows.length) return;
+        const root = document.documentElement;
+        const isDark = root.getAttribute("data-theme") !== "light";
+        const tickColor = isDark ? "rgba(200, 205, 220, 0.85)" : "rgba(60, 70, 90, 0.9)";
+        const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        new Chart(canvas.getContext("2d"), {
+            type: "bar",
+            data: {
+                labels: rows.map(function (r) { return r.nome; }),
+                datasets: [
+                    {
+                        label: "% qtd OK",
+                        data: rows.map(function (r) { return r.pct_qtd; }),
+                        backgroundColor: "rgba(249, 115, 22, 0.42)",
+                        borderColor: "rgba(251, 191, 36, 0.70)",
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        maxBarThickness: 22
+                    },
+                    {
+                        label: "% itens OK",
+                        data: rows.map(function (r) { return r.pct_itens; }),
+                        backgroundColor: "rgba(148, 163, 184, 0.26)",
+                        borderColor: "rgba(203, 213, 225, 0.30)",
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        maxBarThickness: 22
+                    }
+                ]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                    legend: {
+                        position: "top",
+                        labels: { color: tickColor, font: { family: "'Inter', sans-serif", size: 11 }, boxWidth: 12 }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? "rgba(18, 18, 22, 0.94)" : "rgba(255,255,255,0.98)",
+                        titleColor: isDark ? "#fbbf24" : "#fb923c",
+                        bodyColor: isDark ? "#e8ecf4" : "#0c1222",
+                        borderColor: isDark ? "rgba(249, 115, 22, 0.35)" : "rgba(249, 115, 22, 0.25)",
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 10
+                    }
+                },
+                scales: {
+                    x: {
+                        min: 0,
+                        max: 100,
+                        ticks: { color: tickColor, callback: function (v) { return v + "%"; } },
+                        grid: { color: gridColor },
+                        border: { display: false }
+                    },
+                    y: {
+                        ticks: { color: tickColor, font: { size: 10 } },
+                        grid: { display: false },
+                        border: { display: false }
+                    }
+                }
+            }
+        });
+    })();
+    </script>
+    {% endif %}
+{% endblock %}

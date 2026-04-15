@@ -1,0 +1,1240 @@
+{% extends "producao/base.html" %}
+
+{% block title %}PCP • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Principal • PCP{% endblock %}
+{% block breadcrumb %}Principal{% endblock %}
+{% block page_heading %}PCP{% endblock %}
+{% block page_heading_meta %}Pedidos e filtros{% endblock %}
+
+{% block topbar_right_actions %}
+<div class="pcp-topbar-actions-row">
+    <a class="btn" href="{% url 'discos' %}">Discos</a>
+    <button class="pcp-btn-tirados" type="button" id="btnPcpPedidosTirados">PEDIDOS/TIRADOS/A TIRAR</button>
+    <a class="btn" href="{% url 'dados_filtragem' %}">Dados de filtragem</a>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .pcp-topbar-actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-end;
+    }
+    .pcp-wrap {
+        max-width: min(1600px, 100%);
+        margin: 0 auto;
+    }
+    .pcp-title {
+        margin: 0;
+        font-family: var(--font-ui);
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text);
+        overflow-wrap: break-word;
+    }
+    .pcp-layout {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 12px;
+    }
+    @media (max-width: 920px) {
+        .pcp-layout { grid-template-columns: 1fr; }
+    }
+    .pcp-filter-box,
+    .pcp-table-box {
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        border-radius: var(--radius-card);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        padding: 12px 14px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    .pcp-filter-list {
+        margin-top: 10px;
+        max-height: 380px;
+        overflow: auto;
+        display: grid;
+        gap: 6px;
+    }
+    .pcp-filter-list label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 0.86rem;
+    }
+    .pcp-filter-list label.pcp-pedido-linked span {
+        color: #34d399;
+        font-weight: 700;
+    }
+    .pcp-table-wrap {
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-top: 10px;
+    }
+    .pcp-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.87rem;
+    }
+    .pcp-table th, .pcp-table td {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+    }
+    .pcp-table th {
+        position: sticky;
+        top: 0;
+        background: var(--surface-2);
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .pcp-layout-topbar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        margin-bottom: 8px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    .pcp-layout-topbar .pcp-topbar-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .pcp-setor-filter {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .pcp-setor-grid {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 6px 10px;
+    }
+    .pcp-setor-grid label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.82rem;
+    }
+    .pcp-layout.pcp-layout--expanded {
+        position: fixed;
+        inset: 0;
+        z-index: 10120;
+        margin: 0;
+        padding: 12px;
+        background: var(--bg-page);
+        grid-template-columns: 320px 1fr;
+        align-content: start;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        max-width: none;
+    }
+    .pcp-layout.pcp-layout--expanded .pcp-layout-topbar {
+        display: flex;
+        grid-column: 1 / -1;
+    }
+    .pcp-layout.pcp-layout--expanded .pcp-filter-box,
+    .pcp-layout.pcp-layout--expanded .pcp-table-box {
+        min-height: 0;
+        overflow: auto;
+    }
+    .pcp-layout.pcp-layout--expanded .pcp-table-wrap {
+        max-height: calc(100vh - 260px);
+    }
+    .pcp-layout.pcp-layout--expanded.pcp-layout--hide-filter {
+        grid-template-columns: 1fr;
+    }
+    .pcp-layout.pcp-layout--expanded.pcp-layout--hide-filter .pcp-filter-box {
+        display: none;
+    }
+    body.pcp-expanded-lock .sidebar,
+    body.pcp-expanded-lock .app-topbar,
+    body.pcp-expanded-lock .footer,
+    body.pcp-expanded-lock .workspace-deco {
+        display: none !important;
+    }
+    body.pcp-expanded-lock .workspace {
+        padding: 0 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+    html.pcp-expanded-lock,
+    body.pcp-expanded-lock {
+        overflow: hidden;
+    }
+    .pcp-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 10160;
+        padding: 14px;
+    }
+    .pcp-modal {
+        width: min(1200px, 98vw);
+        max-height: 92vh;
+        overflow: auto;
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        border-radius: var(--radius-card);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        padding: 14px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    .pcp-grel-table-wrap {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: auto;
+        max-height: 58vh;
+    }
+    .pcp-grel-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.83rem;
+    }
+    .pcp-grel-table th, .pcp-grel-table td {
+        border-bottom: 1px solid var(--border);
+        padding: 8px 9px;
+        text-align: left;
+    }
+    .pcp-grel-table th {
+        position: sticky; top: 0;
+        background: var(--surface-2);
+        color: var(--muted);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .pcp-grel-table input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 0.82rem;
+    }
+
+    /* Botão laranja vidro fosco — Pedidos tirados / a tirar */
+    .pcp-btn-tirados {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: var(--radius-btn);
+        border: 1px solid rgba(253, 186, 116, 0.55) !important;
+        background: linear-gradient(165deg, rgba(251, 191, 36, 0.38) 0%, rgba(245, 158, 11, 0.22) 100%) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #fff7ed !important;
+        font-family: var(--font-ui);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 237, 213, 0.45),
+            0 10px 22px rgba(0, 0, 0, 0.28),
+            0 0 0 1px rgba(251, 146, 60, 0.18) !important;
+        text-shadow: 0 1px 2px rgba(67, 20, 7, 0.45);
+        max-width: min(100%, 220px);
+        text-align: center;
+        line-height: 1.15;
+        white-space: normal;
+    }
+    .pcp-btn-tirados:hover {
+        border-color: rgba(254, 215, 170, 0.72) !important;
+        background: linear-gradient(165deg, rgba(253, 224, 71, 0.42) 0%, rgba(251, 146, 60, 0.28) 100%) !important;
+    }
+    .pcp-btn-tirados:focus-visible {
+        outline: 2px solid rgba(251, 191, 36, 0.75);
+        outline-offset: 2px;
+    }
+
+    .pcp-pedidos-modal {
+        width: min(1100px, 98vw);
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    /* Modal Pedidos tirados — expansão total na tela */
+    #pcpPedidosTiradosModal.pcp-modal-backdrop {
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 0;
+        z-index: 10200;
+    }
+    #pcpPedidosTiradosModal .pcp-modal.pcp-pedidos-modal {
+        width: 100vw !important;
+        width: 100dvw !important;
+        max-width: none !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+        margin: 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    body.pcp-pedidos-tirados-open {
+        overflow: hidden !important;
+    }
+    /* Contraste legível no modal (evita texto branco sobre fundo claro) */
+    #pcpPedidosTiradosModal .pcp-modal {
+        background: linear-gradient(165deg, rgba(18, 20, 28, 0.98) 0%, rgba(10, 12, 18, 0.99) 100%) !important;
+        color: #e8eaef !important;
+        border: 1px solid rgba(59, 130, 246, 0.28) !important;
+    }
+    #pcpPedidosTiradosModal .pcp-title,
+    #pcpPedidosTiradosModal .cp-help,
+    #pcpPedidosTiradosModal .pcp-pedidos-hint {
+        color: #cbd5e1 !important;
+        text-shadow: none !important;
+    }
+    #pcpPedidosTiradosModal .pcp-title {
+        color: #f1f5f9 !important;
+    }
+    #pcpPedidosTiradosModal .cp-help strong {
+        color: #f8fafc !important;
+    }
+    html[data-theme="light"] .pcp-modal {
+        border: 1px solid rgba(0, 0, 0, 0.08) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            0 4px 12px rgba(0, 0, 0, 0.08),
+            0 16px 40px rgba(0, 0, 0, 0.1) !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-modal {
+        background: linear-gradient(165deg, #ffffff 0%, #eef2f7 100%) !important;
+        color: #0f172a !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-title {
+        color: #0f172a !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .cp-help,
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-pedidos-hint {
+        color: #475569 !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .cp-help strong {
+        color: #0f172a !important;
+    }
+    .pcp-pedidos-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .pcp-pedidos-toolbar label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #94a3b8 !important;
+        font-family: var(--font-ui);
+        text-shadow: none !important;
+    }
+    html[data-theme="light"] .pcp-pedidos-toolbar label {
+        color: #64748b !important;
+    }
+    #pcpPedidosTiradosModal .pcp-pedidos-toolbar select,
+    #pcpPedidosTiradosModal .pcp-pedidos-toolbar input[type="search"] {
+        min-width: 180px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 0.84rem;
+        font-family: var(--font-ui);
+        box-sizing: border-box;
+        background: rgba(15, 23, 42, 0.92) !important;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
+        color: #f1f5f9 !important;
+        text-shadow: none !important;
+    }
+    #pcpPedidosTiradosModal .pcp-pedidos-toolbar select option {
+        background: #0f172a;
+        color: #f1f5f9;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-pedidos-toolbar select,
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-pedidos-toolbar input[type="search"] {
+        background: #ffffff !important;
+        border: 1px solid rgba(15, 23, 42, 0.18) !important;
+        color: #0f172a !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-pedidos-toolbar select option {
+        background: #ffffff;
+        color: #0f172a;
+    }
+    .pcp-pedidos-table-wrap {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+    }
+    .pcp-pedidos-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+    }
+    .pcp-pedidos-table th,
+    .pcp-pedidos-table td {
+        padding: 9px 10px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+        text-align: left;
+        vertical-align: top;
+        color: #e2e8f0 !important;
+        text-shadow: none !important;
+    }
+    html[data-theme="light"] .pcp-pedidos-table th,
+    html[data-theme="light"] .pcp-pedidos-table td {
+        border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+        color: #0f172a !important;
+    }
+    .pcp-pedidos-table th {
+        position: sticky;
+        top: 0;
+        background: rgba(30, 41, 59, 0.95) !important;
+        color: #94a3b8 !important;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        z-index: 1;
+    }
+    html[data-theme="light"] .pcp-pedidos-table th {
+        background: #e2e8f0 !important;
+        color: #475569 !important;
+    }
+    #pcpPedidosTiradosModal .pcp-pedidos-table textarea {
+        width: 100%;
+        min-height: 52px;
+        resize: vertical;
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
+        background: rgba(15, 23, 42, 0.55) !important;
+        color: #f1f5f9 !important;
+        font-family: var(--font-ui);
+        font-size: 0.82rem;
+        text-shadow: none !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-pedidos-table textarea {
+        background: #ffffff !important;
+        border: 1px solid rgba(15, 23, 42, 0.18) !important;
+        color: #0f172a !important;
+    }
+    .pcp-badge-tirado {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(52, 211, 153, 0.18);
+        border: 1px solid rgba(52, 211, 153, 0.45);
+        color: #6ee7b7;
+    }
+    .pcp-badge-a-tirar {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(251, 191, 36, 0.14);
+        border: 1px solid rgba(251, 191, 36, 0.45);
+        color: #fcd34d;
+    }
+    .pcp-cell-rel--a-tirar {
+        background: linear-gradient(180deg, rgba(250, 204, 21, 0.35), rgba(250, 204, 21, 0.18)) !important;
+        color: rgba(15, 23, 42, 0.92);
+        font-weight: 800;
+    }
+    html[data-theme="light"] .pcp-cell-rel--a-tirar {
+        color: #422006;
+    }
+    .pcp-cell-rel-text {
+        font-weight: 700;
+        color: var(--text);
+    }
+    .pcp-pedidos-hint {
+        font-size: 0.76rem;
+        color: #94a3b8 !important;
+        margin-top: 8px;
+        text-shadow: none !important;
+    }
+    html[data-theme="light"] .pcp-pedidos-hint {
+        color: #64748b !important;
+    }
+    #pcpPedidosTiradosModal .pcp-cell-setor {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #cbd5e1 !important;
+        max-width: 220px;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-cell-setor {
+        color: #334155 !important;
+    }
+    #pcpPedidosTiradosModal .pcp-dat-entrada {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: #e2e8f0 !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-dat-entrada {
+        color: #0f172a !important;
+    }
+    #pcpPedidosTiradosModal .pcp-dat-entrada--atrasada {
+        color: #f87171 !important;
+        font-weight: 800;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-dat-entrada--atrasada {
+        color: #dc2626 !important;
+    }
+    #pcpPedidosTiradosModal .btn {
+        color: #e2e8f0 !important;
+        border-color: rgba(148, 163, 184, 0.45) !important;
+        background: rgba(30, 41, 59, 0.65) !important;
+        text-shadow: none !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .btn:not(.btn-dash-mega) {
+        background: var(--btn-degrade-dark) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--btn-degrade-dark-edge) !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .btn:not(.btn-dash-mega):hover {
+        background: var(--btn-degrade-dark-hover) !important;
+        border-color: #2a2d32 !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+    }
+    #pcpPedidosTiradosModal .pcp-pedidos-table td.cp-help {
+        color: #94a3b8 !important;
+        text-align: center;
+        padding: 16px 10px;
+    }
+    html[data-theme="light"] #pcpPedidosTiradosModal .pcp-pedidos-table td.cp-help {
+        color: #64748b !important;
+    }
+
+    /* Tema claro: botões da área de trabalho PCP */
+    html[data-theme="light"] body.page-pcp .workspace .btn:not(.btn-dash-mega),
+    html[data-theme="light"] body.page-pcp .workspace a.btn:not(.btn-dash-mega) {
+        background: var(--btn-degrade-dark) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--btn-degrade-dark-edge) !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    html[data-theme="light"] body.page-pcp .workspace .btn:not(.btn-dash-mega):hover,
+    html[data-theme="light"] body.page-pcp .workspace a.btn:not(.btn-dash-mega):hover {
+        background: var(--btn-degrade-dark-hover) !important;
+        border-color: #2a2d32 !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+    }
+    /* Topbar PCP: mesmo degradê dos demais botões escuros */
+    html[data-theme="light"] .app-topbar .pcp-btn-tirados {
+        background: var(--btn-degrade-dark) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--btn-degrade-dark-edge) !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    html[data-theme="light"] .app-topbar .pcp-btn-tirados:hover {
+        background: var(--btn-degrade-dark-hover) !important;
+        border-color: #2a2d32 !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+    }
+    html[data-theme="light"] .app-topbar .pcp-btn-tirados:focus-visible {
+        outline: 2px solid rgba(0, 0, 0, 0.35);
+        outline-offset: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pcp-wrap">
+    <div class="cp-help">
+        Importação de arquivos (Pedidos.xls por fonte, MRP, estoque) fica em
+        <strong>Operações → <a href="{% url 'operacoes_importacao' %}">Importação</a></strong>.
+    </div>
+    {% if erro_gerar_relacao %}
+        <div class="cp-help" style="color:#fca5a5; margin-top:6px;">{{ erro_gerar_relacao }}</div>
+    {% endif %}
+
+    <div class="pcp-layout" id="pcpLayout">
+        <div class="pcp-layout-topbar">
+            <div class="pcp-title" style="font-size:0.86rem;">Modo expandido — PCP</div>
+            <div class="pcp-topbar-actions">
+                <button class="btn" type="button" id="btnPcpToggleFilter">Minimizar filtro</button>
+                <button class="btn btn-accent" type="button" id="btnPcpExitExpand">Retornar</button>
+            </div>
+        </div>
+        <aside class="pcp-filter-box" aria-label="Filtro lateral por pedido">
+            <div class="pcp-title" style="font-size:0.88rem;">Filtrar por Pedido</div>
+            <div class="cp-help" style="margin-top:4px;">Você pode filtrar 1, 2 ou 3 fontes.</div>
+            <div id="fonteLista" class="pcp-filter-list" style="max-height:120px; margin-top:8px;">
+                {% for f in fontes_disponiveis %}
+                    <label data-fonte-item="{{ f.nome|lower }}">
+                        <input type="checkbox" value="{{ f.key }}" checked onchange="PCPFilter.aplicar()" />
+                        <span>{{ f.nome }}</span>
+                    </label>
+                {% empty %}
+                    <div class="cp-help">Nenhuma fonte com arquivo importado.</div>
+                {% endfor %}
+            </div>
+            <input id="pedidoBusca" type="text" placeholder="Buscar pedido..." style="margin-top:10px;" />
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn" type="button" onclick="PCPFilter.selecionarTudo()">Todos</button>
+                <button class="btn" type="button" onclick="PCPFilter.limpar()">Limpar</button>
+            </div>
+            <div id="pedidoLista" class="pcp-filter-list">
+                {% for p in pedidos %}
+                    <label data-pedido-item="{{ p|lower }}" class="{% if p in related_pedidos %}pcp-pedido-linked{% endif %}">
+                        <input type="checkbox" value="{{ p }}" checked onchange="PCPFilter.aplicar()" />
+                        <span>{{ p }}</span>
+                    </label>
+                {% empty %}
+                    <div class="cp-help">Nenhum pedido encontrado.</div>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <section class="pcp-table-box" aria-label="Tabela de pedidos">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                <div class="pcp-title" style="font-size:0.88rem;">Tabela de pedidos</div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn" type="button" id="btnPcpGerarRelacao">Gerar relação</button>
+                    <button class="btn" type="button" id="btnPcpExpand">Expandir tela</button>
+                </div>
+            </div>
+            {% if erros_tabela %}
+                {% for et in erros_tabela %}
+                    <div class="cp-help" style="margin-top:8px; color:#fca5a5;">{{ et }}</div>
+                {% endfor %}
+            {% endif %}
+            <div class="pcp-setor-filter">
+                <div class="cp-help" style="margin:0;">
+                    Filtrar por local (Setor) com base em <strong>Dados de filtragem</strong>, comparando
+                    <strong>Cód. do Produto</strong> da tabela com <strong>Cód Interno</strong>.
+                </div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn" type="button" onclick="PCPFilter.selecionarTudoSetor()">Todos os setores</button>
+                    <button class="btn" type="button" onclick="PCPFilter.limparSetor()">Limpar setores</button>
+                </div>
+                <div id="setorLista" class="pcp-setor-grid">
+                    {% for s in setores_disponiveis %}
+                        <label data-setor-item="{{ s|lower }}">
+                            <input type="checkbox" value="{{ s }}" checked onchange="PCPFilter.aplicar()" />
+                            <span>{{ s }}</span>
+                        </label>
+                    {% empty %}
+                        <div class="cp-help">Sem setores para filtrar.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="cp-help" id="pcpCount" style="margin-top:6px;">Linhas: {{ rows|length }}</div>
+            <div class="pcp-table-wrap">
+                <table class="pcp-table" aria-label="Pedidos">
+                    <thead>
+                        <tr>
+                            <th>Número do Pedido</th>
+                            <th>Descrição dos produtos</th>
+                            <th>Cód. do Produto</th>
+                            <th>Saldo Pedido</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pcpBody">
+                        {% for r in rows %}
+                            <tr data-pedido="{{ r.pedido }}" data-fonte="{{ r.fonte_key }}" data-setores="{{ r.setores_match_str }}">
+                                <td>{{ r.pedido }}</td>
+                                <td>{{ r.descricao }}</td>
+                                <td>{{ r.codigo }}</td>
+                                <td>{{ r.saldo }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="4" class="cp-help">Sem dados para exibir.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div class="pcp-modal-backdrop" id="pcpGerarRelacaoModal" role="dialog" aria-modal="true" aria-label="Gerar relação">
+        <div class="pcp-modal">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <h3 class="pcp-title" style="margin:0;">Gerar relação a partir da filtragem</h3>
+                <button class="btn" type="button" id="btnCloseGerarRelacao">Fechar</button>
+            </div>
+            <form method="post" id="pcpGerarRelacaoForm" style="margin-top:10px;">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="gerar_relacao" />
+                <input type="hidden" name="rows_payload" id="pcpRowsPayload" />
+                <div style="display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:end;">
+                    <div>
+                        <label class="cp-help" for="pcpNomeRelacao" style="display:block; margin-bottom:4px;">Nome da relação</label>
+                        <input id="pcpNomeRelacao" type="text" name="nome_relacao" required placeholder="Ex.: RELAÇÃO PCP 31/03/2026" />
+                    </div>
+                    <button class="btn btn-accent" type="submit">Salvar relação</button>
+                </div>
+
+                <div class="pcp-grel-table-wrap">
+                    <table class="pcp-grel-table">
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Descrição</th>
+                                <th>Cód. do Produto</th>
+                                <th>Quantidade</th>
+                                <th>ODF</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pcpGerarRelacaoBody"></tbody>
+                    </table>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                    <button class="btn" type="button" id="btnCancelGerarRelacao">Cancelar</button>
+                    <button class="btn btn-accent" type="submit">Salvar relação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="pcp-modal-backdrop" id="pcpPedidosTiradosModal" role="dialog" aria-modal="true" aria-label="Pedidos tirados e a tirar">
+        <div class="pcp-modal pcp-pedidos-modal">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                <div>
+                    <h3 class="pcp-title" style="margin:0;">Pedidos — tirados e a tirar</h3>
+                    <div class="cp-help" style="margin-top:6px;">
+                        <strong>Tirados</strong> são os pedidos que já aparecem em <span style="color:#34d399;font-weight:800;">verde</span> na lista (já vinculados a alguma relação).
+                        <strong>A tirar</strong> são os demais pedidos importados; a coluna de relação fica em destaque <span style="color:#fbbf24;font-weight:800;">amarelo</span>.
+                    </div>
+                </div>
+                <button class="btn" type="button" id="btnClosePedidosTirados">Fechar</button>
+            </div>
+
+            <div class="pcp-pedidos-toolbar" style="margin-top:12px;">
+                <label>
+                    Filtro
+                    <select id="pcpPedidosFiltroSit">
+                        <option value="todos">Todos</option>
+                        <option value="tirados">Pedidos tirados</option>
+                        <option value="a_tirar">Pedidos a tirar</option>
+                    </select>
+                </label>
+                <label>
+                    Setor
+                    <select id="pcpPedidosFiltroSetor">
+                        <option value="">Todos os setores</option>
+                        {% for s in setores_disponiveis %}
+                        <option value="{{ s }}">{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Buscar
+                    <input id="pcpPedidosBusca" type="search" placeholder="Pedido, setor, razão, relação ou observação..." autocomplete="off" />
+                </label>
+            </div>
+
+            <div class="pcp-pedidos-table-wrap">
+                <table class="pcp-pedidos-table" aria-label="Pedidos tirados e a tirar">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Data entrada</th>
+                            <th>Setor(es)</th>
+                            <th>Situação</th>
+                            <th>Relação(ões)</th>
+                            <th>Razão social</th>
+                            <th>Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pcpPedidosTiradosBody"></tbody>
+                </table>
+            </div>
+            <div class="pcp-pedidos-hint">Observações ficam salvas automaticamente no navegador (localStorage) por número de pedido.</div>
+        </div>
+    </div>
+
+    {{ pcp_pedidos_status|json_script:"pcp-pedidos-status-data" }}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PCPFilter = {
+    _pedidoSearchTerm: "",
+    _selectedSetores() {
+        const all = Array.from(document.querySelectorAll("#setorLista input[type='checkbox']"))
+            .map(x => (x.value || "").trim())
+            .filter(Boolean);
+        const checked = Array.from(document.querySelectorAll("#setorLista input[type='checkbox']:checked"))
+            .map(x => (x.value || "").trim())
+            .filter(Boolean);
+        // Se nada marcado, considera "todos" para evitar quebrar a interação.
+        return new Set(checked.length ? checked : all);
+    },
+    _selectedFontes() {
+        const all = Array.from(document.querySelectorAll("#fonteLista input[type='checkbox']"))
+            .map(x => (x.value || "").trim())
+            .filter(Boolean);
+        const checked = Array.from(document.querySelectorAll("#fonteLista input[type='checkbox']:checked"))
+            .map(x => (x.value || "").trim())
+            .filter(Boolean);
+        return new Set(checked.length ? checked : all);
+    },
+    _selectedPedidos() {
+        const allVisible = Array.from(document.querySelectorAll("#pedidoLista label[data-pedido-item]"))
+            .filter((el) => el.style.display !== "none")
+            .map((el) => {
+                const inp = el.querySelector("input[type='checkbox']");
+                return inp ? (inp.value || "").trim() : "";
+            })
+            .filter(Boolean);
+        const checked = Array.from(document.querySelectorAll("#pedidoLista input[type='checkbox']:checked"))
+            .map(x => (x.value || "").trim())
+            .filter(Boolean);
+        return new Set(checked.length ? checked : allVisible);
+    },
+    _rowMatchesFonteSetor(tr, selectedFontes, selectedSetores) {
+        const f = (tr.getAttribute("data-fonte") || "").trim();
+        const sRaw = (tr.getAttribute("data-setores") || "").trim();
+        const sList = sRaw ? sRaw.split("|").map(x => x.trim()).filter(Boolean) : [];
+        const onFonte = selectedFontes.has(f);
+        const onSetor = sList.some(s => selectedSetores.has(s));
+        return onFonte && onSetor;
+    },
+    _refreshPedidoOptions(selectedFontes, selectedSetores) {
+        const available = new Set();
+        document.querySelectorAll("#pcpBody tr[data-pedido]").forEach((tr) => {
+            if (!this._rowMatchesFonteSetor(tr, selectedFontes, selectedSetores)) return;
+            const p = (tr.getAttribute("data-pedido") || "").trim();
+            if (p) available.add(p);
+        });
+
+        document.querySelectorAll("#pedidoLista label[data-pedido-item]").forEach((label) => {
+            const inp = label.querySelector("input[type='checkbox']");
+            if (!inp) return;
+            const p = (inp.value || "").trim();
+            const ok = available.has(p);
+            // some da lista os pedidos sem produto no recorte atual
+            if (!ok) {
+                label.style.display = "none";
+                inp.checked = false;
+                return;
+            }
+            const term = this._pedidoSearchTerm;
+            const txt = (label.getAttribute("data-pedido-item") || "").trim();
+            label.style.display = (!term || txt.includes(term)) ? "" : "none";
+        });
+    },
+    aplicar() {
+        const selectedFontes = this._selectedFontes();
+        const selectedSetores = this._selectedSetores();
+        this._refreshPedidoOptions(selectedFontes, selectedSetores);
+        const selectedPedidos = this._selectedPedidos();
+        const rows = document.querySelectorAll("#pcpBody tr[data-pedido]");
+        let vis = 0;
+        rows.forEach((tr) => {
+            const p = (tr.getAttribute("data-pedido") || "").trim();
+            const onPedido = selectedPedidos.has(p);
+            const onBase = this._rowMatchesFonteSetor(tr, selectedFontes, selectedSetores);
+            const on = onPedido && onBase;
+            tr.style.display = on ? "" : "none";
+            if (on) vis++;
+        });
+        const cnt = document.getElementById("pcpCount");
+        if (cnt) cnt.textContent = "Linhas visíveis: " + vis;
+    },
+    selecionarTudoSetor() {
+        document.querySelectorAll("#setorLista input[type='checkbox']").forEach((c) => { c.checked = true; });
+        this.aplicar();
+    },
+    limparSetor() {
+        document.querySelectorAll("#setorLista input[type='checkbox']").forEach((c) => { c.checked = false; });
+        this.aplicar();
+    },
+    selecionarTudo() {
+        document.querySelectorAll("#fonteLista input[type='checkbox']").forEach((c) => { c.checked = true; });
+        document.querySelectorAll("#setorLista input[type='checkbox']").forEach((c) => { c.checked = true; });
+        document.querySelectorAll("#pedidoLista input[type='checkbox']").forEach((c) => { c.checked = true; });
+        this.aplicar();
+    },
+    limpar() {
+        document.querySelectorAll("#fonteLista input[type='checkbox']").forEach((c) => { c.checked = false; });
+        document.querySelectorAll("#setorLista input[type='checkbox']").forEach((c) => { c.checked = false; });
+        document.querySelectorAll("#pedidoLista input[type='checkbox']").forEach((c) => { c.checked = false; });
+        this.aplicar();
+    },
+    buscar(term) {
+        this._pedidoSearchTerm = String(term || "").toLowerCase().trim();
+        this.aplicar();
+    },
+};
+
+document.addEventListener("DOMContentLoaded", function () {
+    const busca = document.getElementById("pedidoBusca");
+    if (busca) {
+        busca.addEventListener("input", function () {
+            PCPFilter.buscar(this.value);
+        });
+    }
+    PCPFilter.aplicar();
+
+    const layout = document.getElementById("pcpLayout");
+    const btnExpand = document.getElementById("btnPcpExpand");
+    const btnExit = document.getElementById("btnPcpExitExpand");
+    const btnToggleFilter = document.getElementById("btnPcpToggleFilter");
+
+    let pcpParent = null;
+    let pcpNextSibling = null;
+
+    function setExpanded(on) {
+        if (!layout) return;
+        if (on) {
+            if (layout.parentNode !== document.body) {
+                pcpParent = layout.parentNode;
+                pcpNextSibling = layout.nextSibling;
+                document.body.appendChild(layout);
+            }
+        } else {
+            if (pcpParent && layout.parentNode === document.body) {
+                if (pcpNextSibling) pcpParent.insertBefore(layout, pcpNextSibling);
+                else pcpParent.appendChild(layout);
+            }
+            pcpParent = null;
+            pcpNextSibling = null;
+        }
+        layout.classList.toggle("pcp-layout--expanded", on);
+        if (!on) {
+            layout.classList.remove("pcp-layout--hide-filter");
+            if (btnToggleFilter) btnToggleFilter.textContent = "Minimizar filtro";
+        }
+        document.documentElement.classList.toggle("pcp-expanded-lock", on);
+        document.body.classList.toggle("pcp-expanded-lock", on);
+    }
+
+    if (btnExpand) {
+        btnExpand.addEventListener("click", function () {
+            setExpanded(true);
+        });
+    }
+    if (btnExit) {
+        btnExit.addEventListener("click", function () {
+            setExpanded(false);
+        });
+    }
+    if (btnToggleFilter && layout) {
+        btnToggleFilter.addEventListener("click", function () {
+            const hidden = layout.classList.toggle("pcp-layout--hide-filter");
+            btnToggleFilter.textContent = hidden ? "Mostrar filtro" : "Minimizar filtro";
+        });
+    }
+
+    document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && layout && layout.classList.contains("pcp-layout--expanded")) {
+            ev.preventDefault();
+            setExpanded(false);
+        }
+    });
+
+    const modal = document.getElementById("pcpGerarRelacaoModal");
+    const btnGerar = document.getElementById("btnPcpGerarRelacao");
+    const btnCloseGerar = document.getElementById("btnCloseGerarRelacao");
+    const btnCancelGerar = document.getElementById("btnCancelGerarRelacao");
+    const bodyGerar = document.getElementById("pcpGerarRelacaoBody");
+    const payloadInput = document.getElementById("pcpRowsPayload");
+    const formGerar = document.getElementById("pcpGerarRelacaoForm");
+
+    function visibleRowsForRelacao() {
+        const out = [];
+        document.querySelectorAll("#pcpBody tr[data-pedido]").forEach((tr) => {
+            if (tr.style.display === "none") return;
+            const cells = tr.querySelectorAll("td");
+            if (!cells || cells.length < 4) return;
+            out.push({
+                pedido: (cells[0].textContent || "").trim(),
+                descricao: (cells[1].textContent || "").trim(),
+                codigo: (cells[2].textContent || "").trim(),
+                saldo: (cells[3].textContent || "").trim(),
+                odf: "",
+            });
+        });
+        return out;
+    }
+
+    function renderGerarRows(rows) {
+        if (!bodyGerar) return;
+        bodyGerar.innerHTML = "";
+        rows.forEach((r, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${r.pedido || ""}</td>
+                <td>${r.descricao || ""}</td>
+                <td>${r.codigo || ""}</td>
+                <td>${r.saldo || ""}</td>
+                <td><input type="text" data-idx="${idx}" class="grel-odf-input" placeholder="ODF" /></td>
+            `;
+            bodyGerar.appendChild(tr);
+        });
+    }
+
+    let rowsDraft = [];
+    if (btnGerar && modal) {
+        btnGerar.addEventListener("click", function () {
+            rowsDraft = visibleRowsForRelacao();
+            if (!rowsDraft.length) {
+                alert("Não há linhas visíveis para gerar relação.");
+                return;
+            }
+            renderGerarRows(rowsDraft);
+            modal.style.display = "flex";
+            const nome = document.getElementById("pcpNomeRelacao");
+            if (nome) nome.focus();
+        });
+    }
+    function closeGerarModal() {
+        if (!modal) return;
+        modal.style.display = "none";
+    }
+    if (btnCloseGerar) btnCloseGerar.addEventListener("click", closeGerarModal);
+    if (btnCancelGerar) btnCancelGerar.addEventListener("click", closeGerarModal);
+    if (modal) {
+        modal.addEventListener("click", function (ev) {
+            if (ev.target === modal) closeGerarModal();
+        });
+    }
+    if (formGerar && payloadInput) {
+        formGerar.addEventListener("submit", function (ev) {
+            const odfInputs = document.querySelectorAll(".grel-odf-input");
+            odfInputs.forEach((inp) => {
+                const i = Number(inp.getAttribute("data-idx"));
+                if (!Number.isFinite(i) || !rowsDraft[i]) return;
+                rowsDraft[i].odf = (inp.value || "").trim();
+            });
+            payloadInput.value = JSON.stringify(rowsDraft);
+            if (!payloadInput.value || payloadInput.value === "[]") {
+                ev.preventDefault();
+                alert("Nenhuma linha válida para gerar a relação.");
+            }
+        });
+    }
+
+    const LS_PCP_PED_OBS = "cmc_pcp_pedidos_obs_v1";
+    function pcpEscHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = String(s == null ? "" : s);
+        return d.innerHTML;
+    }
+    function pcpLoadObs() {
+        try {
+            return JSON.parse(localStorage.getItem(LS_PCP_PED_OBS) || "{}");
+        } catch (e) {
+            return {};
+        }
+    }
+    function pcpSaveObs(obs) {
+        localStorage.setItem(LS_PCP_PED_OBS, JSON.stringify(obs));
+    }
+
+    function pcpFmtDataBr(iso) {
+        if (!iso) return "—";
+        var p = String(iso).split("-");
+        if (p.length !== 3) return String(iso);
+        return p[2] + "/" + p[1] + "/" + p[0];
+    }
+    /** Dias corridos entre a data de entrada (ISO) e hoje (local). */
+    function pcpDiasDesdeEntrada(iso) {
+        if (!iso) return null;
+        var a = new Date(String(iso) + "T12:00:00");
+        if (Number.isNaN(a.getTime())) return null;
+        var t = new Date();
+        t.setHours(12, 0, 0, 0);
+        return Math.floor((t - a) / 86400000);
+    }
+
+    const pedidosDataEl = document.getElementById("pcp-pedidos-status-data");
+    let pedidosStatusRows = [];
+    if (pedidosDataEl && pedidosDataEl.textContent) {
+        try {
+            pedidosStatusRows = JSON.parse(pedidosDataEl.textContent);
+        } catch (e) {
+            pedidosStatusRows = [];
+        }
+    }
+    if (!Array.isArray(pedidosStatusRows)) pedidosStatusRows = [];
+
+    const modalPedidos = document.getElementById("pcpPedidosTiradosModal");
+    const btnPedidos = document.getElementById("btnPcpPedidosTirados");
+    const btnClosePedidos = document.getElementById("btnClosePedidosTirados");
+    const bodyPedidos = document.getElementById("pcpPedidosTiradosBody");
+    const filtroSit = document.getElementById("pcpPedidosFiltroSit");
+    const filtroSetor = document.getElementById("pcpPedidosFiltroSetor");
+    const buscaPedidos = document.getElementById("pcpPedidosBusca");
+
+    function renderPedidosTiradosTable() {
+        if (!bodyPedidos) return;
+        const obs = pcpLoadObs();
+        const sit = filtroSit && filtroSit.value ? filtroSit.value : "todos";
+        const setorSel = filtroSetor && filtroSetor.value ? String(filtroSetor.value).trim() : "";
+        const q = buscaPedidos && buscaPedidos.value ? String(buscaPedidos.value).toLowerCase().trim() : "";
+
+        bodyPedidos.innerHTML = "";
+        let shown = 0;
+        pedidosStatusRows.forEach(function (row) {
+            const tirado = !!row.tirado;
+            if (sit === "tirados" && !tirado) return;
+            if (sit === "a_tirar" && tirado) return;
+
+            const pedido = String(row.pedido || "").trim();
+            const setores = Array.isArray(row.setores) ? row.setores : [];
+            if (setorSel && setores.indexOf(setorSel) === -1) return;
+
+            const rels = Array.isArray(row.relacoes) ? row.relacoes : [];
+            const relText = rels.join(", ");
+            const razao = String(row.razao_social || "").trim();
+            const ob = String(obs[pedido] || "").trim();
+            const setoresText = setores.join(", ");
+            const dataIso = row.data_entrada_iso ? String(row.data_entrada_iso).trim() : "";
+            const dias = pcpDiasDesdeEntrada(dataIso);
+            const atrasada = dataIso && dias !== null && dias > 10;
+            const dataTxt = pcpFmtDataBr(dataIso);
+            const dataCls = "pcp-dat-entrada" + (atrasada ? " pcp-dat-entrada--atrasada" : "");
+
+            const hay = [pedido, dataTxt, dataIso, setoresText, relText, razao, ob].join(" ").toLowerCase();
+            if (q && hay.indexOf(q) === -1) return;
+
+            const tr = document.createElement("tr");
+            const badge = tirado
+                ? '<span class="pcp-badge-tirado">Tirado</span>'
+                : '<span class="pcp-badge-a-tirar">A tirar</span>';
+
+            let relCellHtml;
+            if (tirado) {
+                relCellHtml = '<span class="pcp-cell-rel-text">' + pcpEscHtml(relText || "—") + "</span>";
+            } else {
+                relCellHtml = '<span class="pcp-cell-rel--a-tirar" style="display:block;padding:8px 10px;border-radius:8px;text-align:center;">—</span>';
+            }
+
+            tr.innerHTML =
+                "<td>" + pcpEscHtml(pedido) + "</td>" +
+                '<td><span class="' + dataCls + '">' + pcpEscHtml(dataTxt) + "</span></td>" +
+                '<td class="pcp-cell-setor">' + pcpEscHtml(setoresText || "—") + "</td>" +
+                "<td>" + badge + "</td>" +
+                "<td>" + relCellHtml + "</td>" +
+                "<td>" + pcpEscHtml(razao) + "</td>" +
+                "<td></td>";
+
+            const tdObs = tr.querySelector("td:last-child");
+            const ta = document.createElement("textarea");
+            ta.setAttribute("data-pedido-obs", pedido);
+            ta.setAttribute("aria-label", "Observação do pedido " + pedido);
+            ta.placeholder = "Observação...";
+            ta.value = obs[pedido] || "";
+            ta.addEventListener("input", function () {
+                const o = pcpLoadObs();
+                o[pedido] = ta.value;
+                pcpSaveObs(o);
+            });
+            tdObs.appendChild(ta);
+
+            bodyPedidos.appendChild(tr);
+            shown += 1;
+        });
+
+        if (!shown) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = '<td colspan="7" class="cp-help">Nenhum pedido encontrado para este filtro.</td>';
+            bodyPedidos.appendChild(tr);
+        }
+    }
+
+    function openPedidosModal() {
+        if (!modalPedidos) return;
+        renderPedidosTiradosTable();
+        modalPedidos.style.display = "flex";
+        document.body.classList.add("pcp-pedidos-tirados-open");
+    }
+    function closePedidosModal() {
+        if (!modalPedidos) return;
+        modalPedidos.style.display = "none";
+        document.body.classList.remove("pcp-pedidos-tirados-open");
+    }
+
+    if (btnPedidos) btnPedidos.addEventListener("click", openPedidosModal);
+    if (btnClosePedidos) btnClosePedidos.addEventListener("click", closePedidosModal);
+    if (modalPedidos) {
+        modalPedidos.addEventListener("click", function (ev) {
+            if (ev.target === modalPedidos) closePedidosModal();
+        });
+    }
+    if (filtroSit) filtroSit.addEventListener("change", renderPedidosTiradosTable);
+    if (filtroSetor) filtroSetor.addEventListener("change", renderPedidosTiradosTable);
+    if (buscaPedidos) buscaPedidos.addEventListener("input", renderPedidosTiradosTable);
+
+    document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && modalPedidos && modalPedidos.style.display === "flex") {
+            ev.preventDefault();
+            closePedidosModal();
+        }
+    });
+});
+</script>
+{% endblock %}

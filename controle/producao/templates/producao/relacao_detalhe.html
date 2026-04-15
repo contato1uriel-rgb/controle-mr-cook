@@ -1,0 +1,802 @@
+{% extends "producao/base.html" %}
+{% load l10n %}
+
+{% block title %}{{ relacao.nome }} • Relações{% endblock %}
+{% block topbar_right_actions %}
+<a class="btn btn-accent" href="{% url 'relacoes_visao_geral' %}">VISÃO GERAL</a>
+<a class="btn btn-accent" href="{% url 'odfs_movimentar' %}">ODFS A MOVIMENTAR</a>
+<a class="btn" href="{% url 'distribuir_operacao' %}">DISTRIBUIR OPERAÇÃO</a>
+<a class="btn btn-accent" href="{% url 'relacoes' %}?novo=1">+ ADICIONAR RELAÇÃO</a>
+{% endblock %}
+
+{% block main_class %}main-shell main-shell--fluid{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Relações deve ficar com destaque laranja (MEGA permanece azul) */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+    }
+    /* Tela cheia: overlay fixo na viewport (não depende só de min-height) */
+    .relacao-fullscreen-topbar {
+        display: none;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+        position: relative;
+    }
+    .relacao-fullscreen-topbar > .btn {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    .relacao-fullscreen-actions {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: inline-flex;
+        gap: 8px;
+    }
+    .relacao-fullscreen-actions .btn {
+        position: static !important;
+        transform: none !important;
+    }
+    .relacao-fullscreen-title {
+        margin: 0;
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        color: var(--text);
+    }
+    .relacao-datas-topo {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(200px, 280px));
+        gap: 12px;
+        margin: 0 0 12px;
+    }
+    .relacao-datas-topo .field {
+        min-width: 0;
+    }
+    .relacao-datas-topo .field label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--muted);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on {
+        position: fixed;
+        inset: 0;
+        z-index: 10060;
+        background: var(--bg-page);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: auto;
+        padding: 0;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on .relacao-fullscreen-topbar {
+        display: flex;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on #relacaoItensForm {
+        flex: 0 0 auto;
+        min-height: auto;
+        display: block;
+        overflow: visible;
+        margin: 0 16px 20px !important;
+        max-width: min(1600px, 100%);
+        width: 100%;
+        align-self: center;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on #relacaoItensForm > label {
+        flex-shrink: 0;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on .table-wrap {
+        flex: 0 0 auto;
+        min-height: auto;
+        overflow: visible;
+        margin-top: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        padding: 6px;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on #relacaoItensForm .relacao-form-actions {
+        flex-shrink: 0;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on .table-relacoes {
+        font-size: 0.92rem;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on .table-relacoes input[type="text"],
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on .table-relacoes input[type="date"] {
+        min-width: 6.5rem;
+    }
+    #relacaoFormFullscreenWrap.relacao-fullscreen--on .table-relacoes td:nth-child(2) input {
+        min-width: 12rem;
+    }
+    html.relacao-tabela-fullscreen-lock,
+    body.relacao-tabela-fullscreen-lock {
+        overflow: hidden;
+    }
+    #relacaoDetalheMain .pedido-badge.is-active,
+    #relacaoDetalheMain .pedido-badge.btn-accent,
+    #relacaoDetalheMain .pedido-badge[data-active="1"],
+    html[data-theme="light"] #relacaoDetalheMain .pedido-badge.is-active,
+    html[data-theme="light"] #relacaoDetalheMain .pedido-badge.btn-accent,
+    html[data-theme="light"] #relacaoDetalheMain .pedido-badge[data-active="1"],
+    body.page-default #relacaoDetalheMain .pedido-badge.is-active,
+    body.page-default #relacaoDetalheMain .pedido-badge.btn-accent,
+    body.page-default #relacaoDetalheMain .pedido-badge[data-active="1"] {
+        background-color: #f59e0b !important;
+        border-color: #f59e0b !important;
+        color: #ffffff !important;
+        background-image: none !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+    }
+    #modalEditarOdfSequencia,
+    #modalEditarNomeDetalhe,
+    #modalExcluirRelacaoDetalhe {
+        z-index: 10120 !important;
+    }
+
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        body * {
+            visibility: hidden !important;
+        }
+        #relacaoItensForm,
+        #relacaoItensForm * {
+            visibility: visible !important;
+        }
+        #relacaoItensForm {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #fff !important;
+            color: #000 !important;
+        }
+        #relacaoItensForm > label,
+        #relacaoItensForm .relacao-form-actions,
+        #relacaoItensForm .relacao-datas-topo,
+        #relacaoItensForm .pedido-badge,
+        #relacaoItensForm a.btn,
+        #relacaoItensForm button {
+            display: none !important;
+        }
+        #relacaoItensForm .table-wrap {
+            overflow: visible !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        #relacaoItensForm .table-relacoes {
+            border-spacing: 0 !important;
+            font-size: 10px !important;
+        }
+        #relacaoItensForm .table-relacoes input {
+            border: none !important;
+            background: transparent !important;
+            color: #000 !important;
+            padding: 0 !important;
+        }
+    }
+</style>
+{% include "producao/includes/relacoes_app_styles.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="relacoes-app">
+    <aside class="relacoes-sidebar">
+        {% include "producao/includes/relacoes_sidebar.html" %}
+    </aside>
+
+    <section class="relacoes-main" id="relacaoDetalheMain" aria-label="Detalhe da relação">
+        <div class="relacoes-toolbar">
+            <span class="muted" style="font-size:0.82rem;">Ações da relação selecionada</span>
+            <button type="button" class="btn" id="btnExpandirTabelaDetalhe" aria-expanded="false" aria-controls="relacaoFormFullscreenWrap" title="Abre a grade em tela cheia neste navegador">
+                Tela cheia (tabela)
+            </button>
+        </div>
+
+        <div class="relacoes-panel">
+            <div class="detalhe-head">
+                <div>
+                    <h2>{{ relacao.nome }}</h2>
+                    <div class="detalhe-meta">
+                        Criada em {{ relacao.criada_em|date:"d/m/Y H:i" }} • Itens OK: {{ relacao.progresso_itens_ok|floatformat:0 }}% • Qtd OK: {{ relacao.progresso_quantidade_ok|floatformat:0 }}%
+                    </div>
+                    {% if relacao.pedidos_distintos %}
+                        <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+                            {% for p in relacao.pedidos_distintos %}
+                                <button type="button" class="btn {% if pedido_filtro == p %}btn-accent is-active{% endif %} pedido-badge" data-pedido="{{ p }}" title="Clique para filtrar itens deste pedido">
+                                    Pedido {{ p }}
+                                </button>
+                            {% endfor %}
+                            {% if pedido_filtro %}
+                                <a class="btn" data-clear-pedido href="{% url 'relacao_detalhe' relacao.id %}" title="Limpar filtro de pedido">Limpar filtro pedido</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="detalhe-actions">
+                    <button class="btn" type="button" id="btnRenomearRelacao">Renomear</button>
+                    <button class="btn btn-danger-outline" type="button" id="btnExcluirRelacaoDetalhe">Excluir</button>
+                </div>
+            </div>
+
+            <form method="get" class="relacoes-filters" action="">
+                <div class="field">
+                    <label for="det-busca">Busca</label>
+                    <input id="det-busca" type="text" name="q" placeholder="Pesquisar em qualquer coluna…" value="{{ q }}" />
+                </div>
+                <div class="field">
+                    <label for="det-ok">Filtro OK</label>
+                    <select id="det-ok" name="ok" aria-label="Filtro OK">
+                        <option value="tudo" {% if ok_filtro == 'tudo' %}selected{% endif %}>Tudo</option>
+                        <option value="ok" {% if ok_filtro == 'ok' %}selected{% endif %}>Marcados</option>
+                        <option value="pendente" {% if ok_filtro == 'pendente' %}selected{% endif %}>Pendentes</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="det-de">Data (de)</label>
+                    <input id="det-de" type="date" name="de" value="{{ de }}" />
+                </div>
+                <div class="field">
+                    <label for="det-ate">Data (até)</label>
+                    <input id="det-ate" type="date" name="ate" value="{{ ate }}" />
+                </div>
+                <input type="hidden" name="pedido" value="{{ pedido_filtro }}" />
+                <div class="field" style="grid-column: 1 / -1; display:flex; justify-content:flex-end; align-items:flex-end;">
+                    <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="relacaoFormFullscreenWrap">
+            <div class="relacao-fullscreen-topbar" id="relacaoFullscreenTopbar" aria-hidden="true">
+                <button type="button" class="btn btn-accent" id="btnRecolherTabelaDetalhe">Recolher tabela</button>
+                <span class="relacao-fullscreen-title">{{ relacao.nome }} · M³ REL: {{ m3_rel_total|floatformat:2|unlocalize }}{% if m3_rel_filtrado %} <span class="muted" style="font-weight:500;font-size:0.82em">(itens visíveis)</span>{% endif %}</span>
+                <div class="relacao-fullscreen-actions">
+                    <button type="button" class="btn" id="btnImprimirRelacao">IMPRIMIR</button>
+                    <button type="button" class="btn" id="btnEditarOdfSequencia">Editar</button>
+                </div>
+            </div>
+        <form method="post" class="relacoes-panel" id="relacaoItensForm" style="margin-top:14px;">
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="salvar" />
+            <input type="hidden" name="view_mode" value="{% if visao_consolidada %}consolidada{% else %}pedido{% endif %}" />
+            <input type="hidden" id="relacaoM3RelTotalPrint" value="{{ m3_rel_total|floatformat:2|unlocalize }}" />
+
+            <div class="relacao-datas-topo">
+                <div class="field">
+                    <label for="relacaoPrevisaoData">Previsão</label>
+                    <input id="relacaoPrevisaoData" type="date" name="previsao_data" value="{% if relacao.previsao_data %}{{ relacao.previsao_data|date:'Y-m-d' }}{% endif %}" />
+                </div>
+                <div class="field">
+                    <label for="relacaoLiberacaoData">Liberação para a produção</label>
+                    <input id="relacaoLiberacaoData" type="date" name="liberacao_producao_data" value="{% if relacao.liberacao_producao_data %}{{ relacao.liberacao_producao_data|date:'Y-m-d' }}{% endif %}" />
+                </div>
+            </div>
+
+            <label style="display:flex; gap:10px; align-items:center; margin: 0 0 14px; font-size:0.86rem; color:var(--muted);">
+                <input type="checkbox" name="finalizada" {% if relacao.finalizada %}checked{% endif %} style="width:auto; accent-color:var(--accent);" />
+                Marcar relação como finalizada
+            </label>
+
+            {% if relacao.pedidos_distintos %}
+                <div style="margin: 0 0 12px; display:flex; gap:6px; flex-wrap:wrap;">
+                    {% for p in relacao.pedidos_distintos %}
+                        <button type="button" class="btn {% if pedido_filtro == p %}btn-accent is-active{% endif %} pedido-badge" data-pedido="{{ p }}" title="Clique para filtrar itens deste pedido">
+                            Pedido {{ p }}
+                        </button>
+                    {% endfor %}
+                    {% if pedido_filtro %}
+                        <a class="btn" data-clear-pedido href="{% url 'relacao_detalhe' relacao.id %}" title="Limpar filtro de pedido">Limpar filtro pedido</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <div class="table-wrap" id="relacaoTabelaWrap">
+                <table class="table-relacoes">
+                    <thead>
+                        <tr>
+                            <th style="width:44px;">#</th>
+                            <th>Descrição</th>
+                            <th style="width:140px;">Cód. do Produto</th>
+                            <th style="width:88px;">OK</th>
+                            <th style="width:100px;">Parcial</th>
+                            <th style="width:100px;">Total</th>
+                            <th style="width:110px;">ODF</th>
+                            <th style="width:130px;">Data</th>
+                            <th style="width:180px;">Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in itens %}
+                            <tr class="row-card">
+                                {% if visao_consolidada %}
+                                    <td style="padding:10px 12px;">{{ item.indice }}</td>
+                                    <td style="padding:10px 12px;">
+                                        {{ item.descricao }}
+                                        <input type="hidden" name="cons_idx" value="{{ item.indice }}" />
+                                        <input type="hidden" name="cons_{{ item.indice }}_descricao" value="{{ item.descricao }}" />
+                                        <input type="hidden" name="cons_{{ item.indice }}_codigo" value="{{ item.codigo_produto }}" />
+                                    </td>
+                                    <td style="padding:10px 12px;">{{ item.codigo_produto }}</td>
+                                    <td style="padding:10px 12px;">
+                                        <input class="ok-toggle" type="checkbox" name="cons_{{ item.indice }}_ok" {% if item.ok %}checked{% endif %} />
+                                    </td>
+                                    <td style="padding:10px 12px;">
+                                        <input type="text" inputmode="numeric" name="cons_{{ item.indice }}_parcial" value="{{ item.parcial|floatformat:0|unlocalize }}" />
+                                    </td>
+                                    <td style="padding:10px 12px;">{{ item.quantidade|floatformat:0|unlocalize }}</td>
+                                    <td style="padding:10px 12px;">
+                                        <input type="text" name="cons_{{ item.indice }}_odf" value="{{ item.odf }}" />
+                                    </td>
+                                    <td style="padding:10px 12px;"><input type="date" name="cons_{{ item.indice }}_data" value="{% if item.data %}{{ item.data|date:'Y-m-d' }}{% endif %}" /></td>
+                                    <td style="padding:10px 12px;"><input type="text" name="cons_{{ item.indice }}_observacao" value="{{ item.observacao }}" /></td>
+                                {% else %}
+                                    <td style="padding:10px 12px;">{{ item.indice }}</td>
+                                    <td style="padding:10px 12px;"><input type="text" name="item_{{ item.id }}_descricao" value="{{ item.descricao }}" /></td>
+                                    <td style="padding:10px 12px;"><input type="text" name="item_{{ item.id }}_codigo_produto" value="{{ item.codigo_produto }}" /></td>
+                                    <td style="padding:10px 12px;">
+                                        <div class="okcell">
+                                            <input class="ok-toggle" type="checkbox" name="item_{{ item.id }}_ok" {% if item.ok %}checked{% endif %} />
+                                            <button class="btn" type="submit"
+                                                    formaction="{% url 'relacao_item_toggle_ok' relacao.id item.id %}"
+                                                    formmethod="post"
+                                                    style="padding:6px 10px; font-size:0.78rem;">Alternar</button>
+                                        </div>
+                                    </td>
+                                    <td style="padding:10px 12px;"><input type="text" inputmode="numeric" name="item_{{ item.id }}_parcial" value="{{ item.parcial|floatformat:0|unlocalize }}" /></td>
+                                    <td style="padding:10px 12px;"><input type="text" inputmode="numeric" name="item_{{ item.id }}_quantidade" value="{{ item.quantidade|floatformat:0|unlocalize }}" /></td>
+                                    <td style="padding:10px 12px;"><input type="text" name="item_{{ item.id }}_odf" value="{{ item.odf }}" /></td>
+                                    <td style="padding:10px 12px;"><input type="date" name="item_{{ item.id }}_data" value="{% if item.data %}{{ item.data|date:'Y-m-d' }}{% endif %}" /></td>
+                                    <td style="padding:10px 12px;">
+                                        <input type="text" name="item_{{ item.id }}_observacao" value="{{ item.observacao }}" />
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="9" class="muted" style="padding:16px;">Nenhum item com os filtros atuais.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="relacao-form-actions" style="margin-top: 16px; display:flex; justify-content:flex-end;">
+                <button class="btn btn-accent" type="submit">Salvar alterações</button>
+            </div>
+        </form>
+        </div>
+    </section>
+</div>
+
+<div class="modal-backdrop" id="modalEditarNomeDetalhe" role="dialog" aria-modal="true" aria-label="Editar nome da relação">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Editar nome</h3>
+            <button class="xbtn" type="button" id="btnFecharModalEditarDetalhe">Fechar</button>
+        </div>
+        <form method="post" action="{% url 'relacao_renomear' relacao.id %}">
+            {% csrf_token %}
+            <label class="muted" style="display:block; font-size:0.85rem; margin-bottom:6px;">Novo nome</label>
+            <input type="text" name="nome" value="{{ relacao.nome }}" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);" />
+            <div class="modal-actions">
+                <button class="btn" type="button" id="btnCancelarModalEditarDetalhe">Cancelar</button>
+                <button class="btn btn-accent" type="submit">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="modalExcluirRelacaoDetalhe" role="dialog" aria-modal="true" aria-label="Excluir relação">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Excluir relação</h3>
+            <button class="xbtn" type="button" id="btnFecharModalExcluirDetalhe">Fechar</button>
+        </div>
+        <div class="muted" style="margin: 8px 0 10px;">
+            Tem certeza que deseja excluir <strong>{{ relacao.nome }}</strong>? Essa ação não pode ser desfeita.
+        </div>
+        <form method="post" action="{% url 'relacao_excluir' relacao.id %}">
+            {% csrf_token %}
+            <div class="modal-actions">
+                <button class="btn" type="button" id="btnCancelarModalExcluirDetalhe">Cancelar</button>
+                <button class="btn btn-accent" type="submit">Excluir</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="modalEditarOdfSequencia" role="dialog" aria-modal="true" aria-label="Editar ODF em sequência">
+    <div class="modal" style="max-width:760px;">
+        <div class="modal-head">
+            <h3>Editar ODF (colar coluna)</h3>
+            <button class="xbtn" type="button" id="btnFecharModalEditarOdf">Fechar</button>
+        </div>
+        <div class="muted" style="font-size:0.84rem; margin: 2px 0 10px;">
+            Cole uma coluna de ODFs (um por linha), na mesma ordem do Excel. A aplicação segue a sequência das linhas visíveis na tabela.
+        </div>
+        <textarea id="odfSequenciaTexto" placeholder="Exemplo:
+123456
+123457
+123458" style="width:100%; min-height:260px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text);"></textarea>
+        <div class="modal-actions">
+            <button class="btn" type="button" id="btnCancelarModalEditarOdf">Cancelar</button>
+            <button class="btn btn-accent" type="button" id="btnAplicarOdfSequencia">Aplicar sequência</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var modalHostMap = new Map();
+        const open = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (!modalHostMap.has(id)) {
+                modalHostMap.set(id, { parent: el.parentNode, next: el.nextSibling });
+            }
+            if (el.parentNode !== document.body) {
+                document.body.appendChild(el);
+            }
+            el.style.display = "flex";
+        };
+        const close = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = "none";
+            var host = modalHostMap.get(id);
+            if (!host || !host.parent || el.parentNode === host.parent) return;
+            if (host.next && host.next.parentNode === host.parent) host.parent.insertBefore(el, host.next);
+            else host.parent.appendChild(el);
+        };
+
+        document.getElementById("btnRenomearRelacao").addEventListener("click", function () {
+            open("modalEditarNomeDetalhe");
+        });
+        document.getElementById("btnExcluirRelacaoDetalhe").addEventListener("click", function () {
+            open("modalExcluirRelacaoDetalhe");
+        });
+
+        ["btnFecharModalEditarDetalhe", "btnCancelarModalEditarDetalhe"].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener("click", function () { close("modalEditarNomeDetalhe"); });
+        });
+        ["btnFecharModalExcluirDetalhe", "btnCancelarModalExcluirDetalhe"].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener("click", function () { close("modalExcluirRelacaoDetalhe"); });
+        });
+        ["btnFecharModalEditarOdf", "btnCancelarModalEditarOdf"].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener("click", function () { close("modalEditarOdfSequencia"); });
+        });
+
+        document.getElementById("modalEditarNomeDetalhe").addEventListener("click", function (e) {
+            if (e.target === this) close("modalEditarNomeDetalhe");
+        });
+        document.getElementById("modalExcluirRelacaoDetalhe").addEventListener("click", function (e) {
+            if (e.target === this) close("modalExcluirRelacaoDetalhe");
+        });
+        document.getElementById("modalEditarOdfSequencia").addEventListener("click", function (e) {
+            if (e.target === this) close("modalEditarOdfSequencia");
+        });
+
+        var wrap = document.getElementById("relacaoFormFullscreenWrap");
+        var btnExpand = document.getElementById("btnExpandirTabelaDetalhe");
+        var btnRecolher = document.getElementById("btnRecolherTabelaDetalhe");
+        var topbar = document.getElementById("relacaoFullscreenTopbar");
+        var fsParent = null;
+        var fsNextSibling = null;
+
+        function setRelacaoTabelaFullscreen(on) {
+            if (!wrap || !btnExpand) return;
+            if (on) {
+                if (wrap.parentNode !== document.body) {
+                    fsParent = wrap.parentNode;
+                    fsNextSibling = wrap.nextSibling;
+                    document.body.appendChild(wrap);
+                }
+            } else {
+                if (fsParent && wrap.parentNode === document.body) {
+                    if (fsNextSibling) fsParent.insertBefore(wrap, fsNextSibling);
+                    else fsParent.appendChild(wrap);
+                }
+                fsParent = null;
+                fsNextSibling = null;
+            }
+            wrap.classList.toggle("relacao-fullscreen--on", on);
+            document.documentElement.classList.toggle("relacao-tabela-fullscreen-lock", on);
+            document.body.classList.toggle("relacao-tabela-fullscreen-lock", on);
+            if (topbar) topbar.setAttribute("aria-hidden", on ? "false" : "true");
+            btnExpand.setAttribute("aria-expanded", on ? "true" : "false");
+            btnExpand.textContent = on ? "Sair da tela cheia" : "Tela cheia (tabela)";
+            // mantém estado de tela cheia na URL para recarregar já expandido
+            var u = new URL(window.location.href);
+            if (on) u.searchParams.set("fs", "1");
+            else u.searchParams.delete("fs");
+            window.history.replaceState({}, "", u.toString());
+        }
+
+        function syncPedidoBadgeAtivo() {
+            var u = new URL(window.location.href);
+            var pedidoAtivo = (u.searchParams.get("pedido") || "").trim();
+            document.querySelectorAll(".pedido-badge[data-pedido]").forEach(function (b) {
+                var p = (b.getAttribute("data-pedido") || "").trim();
+                var ativo = !!pedidoAtivo && p === pedidoAtivo;
+                b.classList.toggle("btn-accent", ativo);
+                b.classList.toggle("is-active", ativo);
+                if (ativo) b.setAttribute("data-active", "1");
+                else b.removeAttribute("data-active");
+                // Fallback final: estilo inline vence qualquer regra global de tema.
+                if (ativo) {
+                    b.style.setProperty("background-color", "#f59e0b", "important");
+                    b.style.setProperty("border-color", "#f59e0b", "important");
+                    b.style.setProperty("color", "#ffffff", "important");
+                    b.style.setProperty("background-image", "none", "important");
+                } else {
+                    b.style.removeProperty("background-color");
+                    b.style.removeProperty("border-color");
+                    b.style.removeProperty("color");
+                    b.style.removeProperty("background-image");
+                }
+            });
+        }
+
+        if (wrap && btnExpand) {
+            btnExpand.addEventListener("click", function () {
+                setRelacaoTabelaFullscreen(!wrap.classList.contains("relacao-fullscreen--on"));
+            });
+        }
+        if (btnRecolher) {
+            btnRecolher.addEventListener("click", function () {
+                setRelacaoTabelaFullscreen(false);
+            });
+        }
+
+        var btnEditarOdf = document.getElementById("btnEditarOdfSequencia");
+        var btnAplicarOdf = document.getElementById("btnAplicarOdfSequencia");
+        var txtOdf = document.getElementById("odfSequenciaTexto");
+        if (btnEditarOdf) {
+            btnEditarOdf.addEventListener("click", function () {
+                open("modalEditarOdfSequencia");
+                if (txtOdf) txtOdf.focus();
+            });
+        }
+        if (btnAplicarOdf) {
+            btnAplicarOdf.addEventListener("click", function () {
+                var raw = (txtOdf && txtOdf.value ? txtOdf.value : "").replace(/\r/g, "");
+                var lista = raw
+                    .split("\n")
+                    .map(function (x) { return (x || "").trim(); })
+                    .filter(function (x) { return !!x; });
+                if (!lista.length) {
+                    alert("Cole ao menos um ODF para aplicar.");
+                    return;
+                }
+                var inputs = Array.from(document.querySelectorAll('input[name$="_odf"]'));
+                if (!inputs.length) {
+                    alert("Nenhuma linha de ODF encontrada para editar.");
+                    return;
+                }
+                inputs.forEach(function (inp) {
+                    inp.value = "";
+                });
+                var n = Math.min(lista.length, inputs.length);
+                for (var i = 0; i < n; i += 1) {
+                    inputs[i].value = lista[i];
+                    inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
+                    inputs[i].dispatchEvent(new Event("change", { bubbles: true }));
+                }
+                close("modalEditarOdfSequencia");
+                alert("ODFs aplicados em sequência: " + n + " linha(s).");
+            });
+        }
+
+        var btnImprimir = document.getElementById("btnImprimirRelacao");
+        if (btnImprimir) {
+            btnImprimir.addEventListener("click", function () {
+                var relNomeEl = document.querySelector(".detalhe-head h2") || document.querySelector(".relacao-fullscreen-title");
+                var relNome = (relNomeEl && relNomeEl.textContent ? relNomeEl.textContent : "Relação").trim();
+                var previsaoInput = document.getElementById("relacaoPrevisaoData");
+                var liberacaoInput = document.getElementById("relacaoLiberacaoData");
+                var toBr = function (iso) {
+                    var s = String(iso || "").trim();
+                    if (!s || s.indexOf("-") < 0) return "";
+                    var p = s.split("-");
+                    if (p.length !== 3) return s;
+                    return p[2] + "/" + p[1] + "/" + p[0];
+                };
+                var previsaoTxt = toBr(previsaoInput && previsaoInput.value ? previsaoInput.value : "") || "--/--/----";
+                var liberacaoTxt = toBr(liberacaoInput && liberacaoInput.value ? liberacaoInput.value : "") || "--/--/----";
+                var rows = Array.from(document.querySelectorAll("#relacaoItensForm .table-relacoes tbody tr.row-card"));
+                if (!rows.length) {
+                    alert("Nenhuma linha disponível para impressão.");
+                    return;
+                }
+                var pedidosSet = new Set();
+                rows.forEach(function (tr) {
+                    var pedidoInput = tr.querySelector('input[name$="_pedido_numero"]');
+                    var pedido = (pedidoInput && pedidoInput.value ? pedidoInput.value : "").trim();
+                    if (pedido) pedidosSet.add(pedido);
+                });
+                if (!pedidosSet.size) {
+                    document.querySelectorAll(".pedido-badge[data-pedido]").forEach(function (b) {
+                        var p = (b.getAttribute("data-pedido") || "").trim();
+                        if (p) pedidosSet.add(p);
+                    });
+                }
+                var pedidoLinha = pedidosSet.size ? Array.from(pedidosSet).join(" | ") : "—";
+                var m3PrintEl = document.getElementById("relacaoM3RelTotalPrint");
+                var m3CubagemTxt = (m3PrintEl && m3PrintEl.value) ? String(m3PrintEl.value).trim() : "—";
+                var headCols = ["Descrição", "Cód. Produto", "OK", "Total", "ODF", "RESPONSÁVEL", "DATA PROD", "PROD", "EXP"];
+                var totalGeral = 0;
+                var toNumber = function (v) {
+                    var s = String(v || "").trim();
+                    if (!s) return 0;
+                    s = s.replace(/\s/g, "");
+                    if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0) {
+                        s = s.replace(/\./g, "").replace(",", ".");
+                    } else if (s.indexOf(",") >= 0) {
+                        s = s.replace(",", ".");
+                    }
+                    var n = Number(s);
+                    return Number.isFinite(n) ? n : 0;
+                };
+                var fmtTotal = function (n) {
+                    if (!Number.isFinite(n)) return "0";
+                    var intLike = Math.abs(n - Math.round(n)) < 0.000001;
+                    return intLike ? String(Math.round(n)) : n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                };
+                var bodyHtml = rows.map(function (tr) {
+                    var tds = tr.querySelectorAll("td");
+                    if (!tds || tds.length < 9) return "";
+                    var txt = function (el) {
+                        if (!el) return "";
+                        var inputs = Array.from(el.querySelectorAll("input"));
+                        if (inputs.length) {
+                            var prefer = inputs.find(function (i) {
+                                return i.type !== "hidden";
+                            });
+                            if (prefer) return (prefer.value || "").trim();
+                        }
+                        return (el.textContent || "").trim();
+                    };
+                    var vals = [
+                        txt(tds[1]),
+                        txt(tds[2]),
+                        "",
+                        txt(tds[5]),
+                        txt(tds[6]),
+                        "",
+                        "",
+                        "",
+                        "",
+                    ];
+                    totalGeral += toNumber(vals[3]);
+                    return "<tr>" + vals.map(function (v) {
+                        return "<td>" + (v || "") + "</td>";
+                    }).join("") + "</tr>";
+                }).join("");
+                bodyHtml += "<tr>" +
+                    "<td colspan='3' style='font-weight:700;text-align:right;background:#000;color:#fff;border-color:#000'>TOTAL GERAL</td>" +
+                    "<td style='font-weight:700;background:#000;color:#fff;border-color:#000'>" + fmtTotal(totalGeral) + "</td>" +
+                    "<td style='background:#000;border-color:#000'></td><td style='background:#000;border-color:#000'></td><td style='background:#000;border-color:#000'></td><td style='background:#000;border-color:#000'></td><td style='background:#000;border-color:#000'></td>" +
+                    "</tr>";
+                var html = [
+                    "<!doctype html><html><head><meta charset='utf-8'><title>Imprimir - " + relNome + "</title>",
+                    "<style>@page{size:A4 landscape;margin:7mm}body{font-family:Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-head{margin:0 0 8px}.print-head-top{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.print-head-top .prev{font-size:28px;font-weight:800;white-space:nowrap}.print-head-top .lib{font-size:20px;text-align:center;white-space:nowrap}.print-head-top .rel{font-size:38px;font-weight:900;text-align:right;white-space:nowrap}.print-pedido-bloco{margin-top:4px;display:flex;flex-direction:row;align-items:stretch;gap:8px}.print-pedido{flex:1 1 auto;border:1px solid #999;padding:8px 10px;font-size:18px;font-weight:700;min-height:48px;white-space:normal;overflow:visible;line-height:1.25;word-break:break-word;display:flex;align-items:center}.print-cubagem-wrap{flex:0 0 auto;display:flex;align-items:stretch;min-height:48px}.print-cubagem{height:100%;aspect-ratio:1/1;width:auto;min-width:48px;min-height:48px;border:1px solid #000;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px;background:#fff;overflow:hidden}.print-cubagem .lb{font-size:clamp(12px,3.8vmin,20px);font-weight:800;margin-bottom:2px;line-height:1.1}.print-cubagem .vl{font-size:clamp(11px,4vmin,26px);font-weight:900;line-height:1}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}th,td{border:1px solid #999;padding:4px 5px;vertical-align:top;word-break:break-word}th{background:#000 !important;color:#fff !important;text-align:left;border-color:#000 !important;font-size:12px}tr:nth-child(even){background:#ececec}th:nth-child(1),td:nth-child(1){width:30%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}th:nth-child(2),td:nth-child(2){width:12%}th:nth-child(3),td:nth-child(3){width:5%}th:nth-child(4),td:nth-child(4){width:8%}th:nth-child(5),td:nth-child(5){width:10%}th:nth-child(6),td:nth-child(6){width:12%}th:nth-child(7),td:nth-child(7){width:8%}th:nth-child(8),td:nth-child(8){width:7%}th:nth-child(9),td:nth-child(9){width:8%}</style>",
+                    "</head><body>",
+                    "<div class='print-head'>",
+                    "<div class='print-head-top'>",
+                    "<div class='prev'>PREVISÃO: " + previsaoTxt + "</div>",
+                    "<div class='lib'>" + liberacaoTxt + "</div>",
+                    "<div class='rel'>" + relNome.toUpperCase() + "</div>",
+                    "</div>",
+                    "<div class='print-pedido-bloco'>",
+                    "<div class='print-pedido'>Pedido " + pedidoLinha + "</div>",
+                    "<div class='print-cubagem-wrap'><div class='print-cubagem' title='Cubagem (m³)'><div class='lb'>m³</div><div class='vl'>" + m3CubagemTxt + "</div></div></div>",
+                    "</div>",
+                    "</div>",
+                    "<table><thead><tr>" + headCols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr></thead>",
+                    "<tbody>" + bodyHtml + "</tbody></table>",
+                    "</body></html>",
+                ].join("");
+                var iframe = document.createElement("iframe");
+                iframe.style.position = "fixed";
+                iframe.style.right = "0";
+                iframe.style.bottom = "0";
+                iframe.style.width = "0";
+                iframe.style.height = "0";
+                iframe.style.border = "0";
+                document.body.appendChild(iframe);
+                var doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(html);
+                doc.close();
+                setTimeout(function () {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    setTimeout(function () {
+                        if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                    }, 1200);
+                }, 120);
+            });
+        }
+
+        document.querySelectorAll(".pedido-badge[data-pedido]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var p = (btn.getAttribute("data-pedido") || "").trim();
+                if (!p) return;
+                var url = new URL(window.location.href);
+                url.searchParams.set("pedido", p);
+                if (wrap && wrap.classList.contains("relacao-fullscreen--on")) {
+                    url.searchParams.set("fs", "1");
+                }
+                window.location.href = url.toString();
+            });
+        });
+        syncPedidoBadgeAtivo();
+
+        document.querySelectorAll("a[data-clear-pedido]").forEach(function (lnk) {
+            lnk.addEventListener("click", function (e) {
+                if (!(wrap && wrap.classList.contains("relacao-fullscreen--on"))) return;
+                e.preventDefault();
+                var url = new URL(lnk.href, window.location.origin);
+                url.searchParams.set("fs", "1");
+                window.location.href = url.toString();
+            });
+        });
+
+        // se abriu com fs=1 (ex.: após duplo clique), já entra em tela cheia
+        var startupUrl = new URL(window.location.href);
+        if ((startupUrl.searchParams.get("fs") || "").trim() === "1") {
+            setRelacaoTabelaFullscreen(true);
+        }
+
+        document.addEventListener("keydown", function (e) {
+            if (e.key !== "Escape") return;
+            if (wrap && wrap.classList.contains("relacao-fullscreen--on")) {
+                e.preventDefault();
+                setRelacaoTabelaFullscreen(false);
+                return;
+            }
+            close("modalEditarNomeDetalhe");
+            close("modalExcluirRelacaoDetalhe");
+        });
+    })();
+</script>
+{% endblock %}

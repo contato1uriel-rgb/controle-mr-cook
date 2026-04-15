@@ -1,0 +1,215 @@
+{# Alerta global após criar relação (?estoque_alerta=1): toast se saldo negativo no cruzamento Compras. #}
+<style>
+    #cmcEstoqueNegativoToast {
+        display: none;
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 200100;
+        max-width: min(320px, calc(100vw - 36px));
+        padding: 14px 18px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(220, 38, 38, 0.45);
+        background: linear-gradient(165deg, rgba(24, 24, 28, 0.98) 0%, rgba(12, 12, 16, 0.99) 100%);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+        cursor: pointer;
+        text-align: center;
+    }
+    html[data-theme="light"] #cmcEstoqueNegativoToast {
+        background: #fff;
+        border-color: rgba(220, 38, 38, 0.5);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+    }
+    #cmcEstoqueNegativoToast .cmc-estoque-negativo-toast__txt {
+        font-family: var(--font-ui, system-ui, sans-serif);
+        font-size: 0.95rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        color: #dc2626;
+        margin: 0;
+    }
+    #cmcEstoqueNegativoToast .cmc-estoque-negativo-toast__rule {
+        height: 3px;
+        margin: 12px -18px -16px;
+        border-radius: 0 0 11px 11px;
+        background: #dc2626;
+    }
+</style>
+<div id="cmcEstoqueNegativoToast" role="status" aria-live="polite" hidden>
+    <p class="cmc-estoque-negativo-toast__txt">ESTOQUE NEGATIVO</p>
+    <div class="cmc-estoque-negativo-toast__rule" aria-hidden="true"></div>
+</div>
+<script>
+(function () {
+    const comprarUrl = "{% url 'comprar' %}";
+    const apiRel = "{% url 'api_relacoes_compras' %}";
+    const apiEst = "{% url 'api_estoque_carcacas_json' %}";
+
+    const DATA_COLS = [
+        "Cod_Interno",
+        "Descrição_Produto",
+        "Cód.Acessório",
+        "Descrição_Acessório",
+        "Fator",
+        "Codigo_Disco/chapa",
+        "Descrição_Disco/chapa",
+        "Codigo_Disco/chapa1",
+        "Descrição_Disco/chapa1",
+    ];
+
+    function normKey(t) {
+        const raw = String(t ?? "").trim();
+        if (!raw) return "";
+        const onlyDigits = raw.replace(/\D/g, "");
+        if (onlyDigits) {
+            const n = String(parseInt(onlyDigits, 10));
+            return n === "NaN" ? onlyDigits : n;
+        }
+        return raw.replace(/\s+/g, "").toUpperCase();
+    }
+
+    function toNum(t) {
+        if (t === null || t === undefined) return 0;
+        const s = String(t).trim();
+        if (!s) return 0;
+        const hasComma = s.includes(",");
+        const hasDot = s.includes(".");
+        let normalized = s.replace(/\s/g, "");
+        if (hasComma && hasDot) normalized = normalized.replace(/\./g, "").replace(",", ".");
+        else if (hasComma) normalized = normalized.replace(",", ".");
+        const n = Number(normalized);
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    function cmcComprarTemNegativo(relacoes, dados, estoqueMap) {
+        if (!Array.isArray(relacoes) || !Array.isArray(dados) || !dados.length) return false;
+        let relIds = relacoes.filter(function (r) { return !r.finalizada; }).map(function (r) { return r.id; });
+        if (!relIds.length) relIds = relacoes.map(function (r) { return r.id; });
+        const qtdPorProduto = {};
+        relIds.forEach(function (relId) {
+            const rel = relacoes.find(function (r) { return Number(r.id) === Number(relId); });
+            if (!rel || !Array.isArray(rel.itens)) return;
+            rel.itens.forEach(function (it) {
+                if (it && it.ok) return;
+                const cod = normKey(it.codigo_produto);
+                if (!cod || cod === "NaN") return;
+                const q = toNum(it.quantidade);
+                qtdPorProduto[cod] = (qtdPorProduto[cod] || 0) + q;
+            });
+        });
+        const candidatos = [];
+        Object.keys(qtdPorProduto).forEach(function (cod) {
+            const qtd = qtdPorProduto[cod];
+            dados.forEach(function (d) {
+                if (normKey(d["Cod_Interno"]) !== cod) return;
+                candidatos.push(Object.assign({}, d, { Quantidade: qtd }));
+            });
+        });
+        const group = new Map();
+        candidatos.forEach(function (r) {
+            const key = DATA_COLS.map(function (k) { return String(r[k] ?? ""); }).join("|");
+            if (!group.has(key)) {
+                const copy = Object.assign({}, r);
+                copy.Quantidade = 0;
+                group.set(key, copy);
+            }
+            const obj = group.get(key);
+            obj.Quantidade = obj.Quantidade + toNum(r.Quantidade);
+        });
+        const needs = Array.from(group.values());
+        let neg = false;
+        needs.forEach(function (r) {
+            const codAcessorio = normKey(r["Cód.Acessório"]);
+            const estoque = Number(estoqueMap[codAcessorio] || 0);
+            const fator = toNum(r["Fator"] || 0);
+            const qtdRelacoes = toNum(r["Quantidade"] || 0);
+            const necessidade = fator > 0 ? qtdRelacoes * fator : qtdRelacoes;
+            const saldo = estoque - necessidade;
+            if (saldo < 0) neg = true;
+        });
+        return neg;
+    }
+
+    function stripEstoqueAlertaParam() {
+        const u = new URL(location.href);
+        if (u.searchParams.get("estoque_alerta") !== "1") return;
+        u.searchParams.delete("estoque_alerta");
+        const q = u.searchParams.toString();
+        history.replaceState({}, "", u.pathname + (q ? "?" + q : "") + u.hash);
+    }
+
+    async function runEstoqueAlerta() {
+        const params = new URLSearchParams(location.search);
+        if (params.get("estoque_alerta") !== "1") return;
+
+        let dados = [];
+        try {
+            dados = JSON.parse(localStorage.getItem("cmc_dados_carcacas_v1") || "[]");
+        } catch (e) {
+            dados = [];
+        }
+        if (!Array.isArray(dados) || !dados.length) {
+            stripEstoqueAlertaParam();
+            return;
+        }
+
+        let relacoes = [];
+        let estServ = {};
+        try {
+            const [r, e] = await Promise.all([
+                fetch(apiRel, { credentials: "same-origin" }).then(function (x) { return x.json(); }),
+                fetch(apiEst, { credentials: "same-origin" }).then(function (x) { return x.json(); }),
+            ]);
+            relacoes = Array.isArray(r) ? r : [];
+            estServ = e && typeof e === "object" ? e : {};
+        } catch (err) {
+            stripEstoqueAlertaParam();
+            return;
+        }
+
+        let estoqueMap = {};
+        try {
+            estoqueMap = JSON.parse(localStorage.getItem("cmc_estoque_carcacas_v1") || "{}");
+        } catch (e2) {
+            estoqueMap = {};
+        }
+        if (estServ && Object.keys(estServ).length) {
+            estoqueMap = Object.assign({}, estServ);
+        }
+
+        if (!cmcComprarTemNegativo(relacoes, dados, estoqueMap)) {
+            stripEstoqueAlertaParam();
+            return;
+        }
+
+        stripEstoqueAlertaParam();
+
+        const toast = document.getElementById("cmcEstoqueNegativoToast");
+        if (!toast) return;
+
+        let hideTimer = null;
+        function hide() {
+            if (hideTimer) clearTimeout(hideTimer);
+            toast.style.display = "none";
+            toast.hidden = true;
+            toast.onclick = null;
+        }
+
+        toast.onclick = function () {
+            hide();
+            window.location.href = comprarUrl;
+        };
+
+        toast.hidden = false;
+        toast.style.display = "block";
+
+        hideTimer = setTimeout(hide, 5000);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", runEstoqueAlerta);
+    } else {
+        runEstoqueAlerta();
+    }
+})();
+</script>

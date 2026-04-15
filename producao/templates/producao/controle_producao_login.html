@@ -1,0 +1,30 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Controle de Produção • CONTROLE MR. COOK{% endblock %}
+
+{% block content %}
+    <div class="card" style="max-width: 520px; margin: 0 auto;">
+        <h2 style="margin:0 0 6px;">BEM VINDO AO CONTROLE DE PRODUÇÃO MR. COOK</h2>
+        <div class="muted" style="margin-bottom: 16px;">
+            Insira suas credenciais para acessar o sistema
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <label style="display:block; font-size:0.85rem; margin-bottom:6px;" for="username">Nome de Usuário</label>
+            <input style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--panel2); color:var(--text); margin-bottom:10px;"
+                   type="text" id="username" name="username" placeholder="Digite seu nome de usuário" />
+
+            <label style="display:block; font-size:0.85rem; margin-bottom:6px;" for="password">Senha</label>
+            <input style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--panel2); color:var(--text); margin-bottom:14px;"
+                   type="password" id="password" name="password" placeholder="Digite sua senha" />
+
+            <button class="btn btn-primary" type="submit" style="width:100%;">Acessar Sistema</button>
+        </form>
+
+        <div class="muted" style="margin-top: 12px;">
+            (Próximo passo) Vou conectar esse login ao Django e proteger a área “Controle de Produção”.
+        </div>
+    </div>
+{% endblock %}
+

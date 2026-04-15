@@ -1,0 +1,319 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Importação • PCP{% endblock %}
+{% block subtitle %}Operações • Importação{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Importação{% endblock %}
+{% block page_heading_meta %}Arquivos usados no PCP{% endblock %}
+
+{% block extra_head %}
+<style>
+    .pcp-wrap {
+        max-width: min(1600px, 100%);
+        margin: 0 auto;
+    }
+    .pcp-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
+    }
+    @media (max-width: 1200px) {
+        .pcp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+        .pcp-grid { grid-template-columns: 1fr; }
+    }
+    .pcp-card {
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(210, 220, 236, 0.07) 100%);
+        border-radius: var(--radius-card);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.34),
+            0 16px 30px rgba(0, 0, 0, 0.30),
+            0 42px 72px rgba(0, 0, 0, 0.26);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        min-height: 100%;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        min-width: 0;
+        box-sizing: border-box;
+    }
+    .pcp-title {
+        margin: 0;
+        font-family: var(--font-ui);
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text);
+        overflow-wrap: break-word;
+    }
+    .pcp-status {
+        font-size: 0.76rem;
+        color: var(--muted);
+        overflow-wrap: break-word;
+    }
+    .pcp-status--ok { color: #34d399; }
+    .pcp-status--off { color: #fca5a5; }
+    .pcp-card .btn {
+        justify-content: center;
+    }
+    .pcp-card .cp-help {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-width: 100%;
+        min-width: 0;
+    }
+    .pcp-upload-form {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+        width: 100%;
+        margin-top: auto;
+    }
+    .pcp-upload-form input[type="file"] {
+        font-size: 0.78rem;
+        max-width: 100%;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+    .pcp-btn-import {
+        background: linear-gradient(165deg, rgba(74, 222, 128, 0.32) 0%, rgba(22, 163, 74, 0.20) 100%) !important;
+        border: 1px solid rgba(134, 239, 172, 0.52) !important;
+        color: #ecfff2 !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(220, 252, 231, 0.44),
+            0 12px 22px rgba(0, 0, 0, 0.24),
+            0 0 0 1px rgba(74, 222, 128, 0.20) !important;
+        text-shadow: 0 1px 2px rgba(8, 48, 20, 0.62) !important;
+    }
+    .pcp-btn-import:hover {
+        background: linear-gradient(165deg, rgba(134, 239, 172, 0.38) 0%, rgba(74, 222, 128, 0.24) 100%) !important;
+        border-color: rgba(187, 247, 208, 0.64) !important;
+    }
+    body.page-pcp .pcp-upload-form .btn,
+    body.page-pcp .pcp-upload-form .btn.btn-accent {
+        background: linear-gradient(165deg, rgba(74, 222, 128, 0.32) 0%, rgba(22, 163, 74, 0.20) 100%) !important;
+        border: 1px solid rgba(134, 239, 172, 0.52) !important;
+        color: #ecfff2 !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(220, 252, 231, 0.44),
+            0 12px 22px rgba(0, 0, 0, 0.24),
+            0 0 0 1px rgba(74, 222, 128, 0.20) !important;
+        text-shadow: 0 1px 2px rgba(8, 48, 20, 0.62) !important;
+        white-space: nowrap !important;
+        font-size: 0.76rem !important;
+        padding: 9px 10px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    body.page-pcp .pcp-upload-form .btn:hover,
+    body.page-pcp .pcp-upload-form .btn.btn-accent:hover {
+        background: linear-gradient(165deg, rgba(134, 239, 172, 0.38) 0%, rgba(74, 222, 128, 0.24) 100%) !important;
+        border-color: rgba(187, 247, 208, 0.64) !important;
+    }
+    .imp-extra-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+    }
+    .imp-extra-actions .btn-accent {
+        white-space: nowrap;
+    }
+    .imp-import-input {
+        position: absolute;
+        width: 0;
+        height: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .imp-import-feedback {
+        font-size: 0.72rem;
+        color: var(--muted);
+        flex: 1 1 160px;
+        min-width: 0;
+        line-height: 1.25;
+    }
+    html[data-theme="light"] body.page-pcp .workspace .btn:not(.btn-dash-mega),
+    html[data-theme="light"] body.page-pcp .workspace a.btn:not(.btn-dash-mega) {
+        background: var(--btn-degrade-dark) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--btn-degrade-dark-edge) !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    html[data-theme="light"] body.page-pcp .workspace .btn:not(.btn-dash-mega):hover,
+    html[data-theme="light"] body.page-pcp .workspace a.btn:not(.btn-dash-mega):hover {
+        background: var(--btn-degrade-dark-hover) !important;
+        border-color: #2a2d32 !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pcp-wrap">
+    <div class="cp-help">
+        Importe os arquivos de pedidos (.xls) por fonte, o MRP (.xls) e a planilha de estoque — os mesmos usados na tela do PCP.
+        O último arquivo de cada tipo fica salvo no sistema até ser substituído.
+    </div>
+    {% if erro_upload %}
+        <div class="cp-help" style="color:#fca5a5; margin-top:6px;">{{ erro_upload }}</div>
+    {% endif %}
+    {% if upload_saved_notice %}
+        <div class="cp-help" style="color:#86efac; margin-top:6px;">Arquivo importado e salvo com sucesso.</div>
+    {% endif %}
+
+    <div class="pcp-grid" style="margin-top:12px;">
+        {% for e in exports %}
+            <div class="pcp-card">
+                <h3 class="pcp-title">{{ e.nome }}</h3>
+                <div class="pcp-status {% if e.exists %}pcp-status--ok{% else %}pcp-status--off{% endif %}">
+                    {% if e.exists %}Arquivo importado{% else %}Sem arquivo importado{% endif %}
+                </div>
+                {% if e.uploaded_name %}
+                    <div class="cp-help" style="margin-top:-2px;">Último: {{ e.uploaded_name }}</div>
+                {% endif %}
+                <form action="{% url 'pcp' %}" method="post" enctype="multipart/form-data" class="pcp-upload-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="upload_pedidos" />
+                    <input type="hidden" name="export_key" value="{{ e.key }}" />
+                    <input type="hidden" name="return_to" value="operacoes_importacao" />
+                    <input type="file" name="pedidos_file" accept=".xls,application/vnd.ms-excel" required />
+                    <button class="btn btn-accent pcp-btn-import" type="submit">Importar Pedidos.xls</button>
+                </form>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="pcp-card" style="margin-top:14px;">
+        <h3 class="pcp-title">MRP e estoque</h3>
+        <div class="cp-help" style="margin:0;">
+            <strong>MRP:</strong> planilha .xls exportada do processo MRP.<br />
+            <strong>Estoque:</strong> planilha Excel com os dados de estoque (para necessidades de carcaças e demais usos).
+        </div>
+        <div class="imp-extra-actions">
+            <input type="file" id="impImportMrpFile" class="imp-import-input" accept=".xls,application/vnd.ms-excel" hidden>
+            <input type="file" id="impImportEstoqueFile" class="imp-import-input" accept=".xlsx,.xls,.xlsm,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+            <button type="button" class="btn btn-accent" id="impBtnImportMrp">Importar MRP</button>
+            <button type="button" class="btn btn-accent" id="impBtnImportEstoque">Adicionar estoque</button>
+            <span id="impImportFeedback" class="imp-import-feedback" aria-live="polite"></span>
+        </div>
+    </div>
+
+    <p class="cp-help" style="margin-top:16px;">
+        <a class="btn" href="{% url 'pcp' %}">Ir para o PCP</a>
+        <span style="margin-left:8px;">— tabela de pedidos, filtros e geração de relações.</span>
+    </p>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function impGetCookie(name) {
+        let v = null;
+        if (document.cookie && document.cookie !== "") {
+            const parts = document.cookie.split(";");
+            for (let i = 0; i < parts.length; i++) {
+                const c = parts[i].trim();
+                if (c.substring(0, name.length + 1) === name + "=") {
+                    v = decodeURIComponent(c.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return v;
+    }
+    const impFb = document.getElementById("impImportFeedback");
+    const impMrpIn = document.getElementById("impImportMrpFile");
+    const impEstIn = document.getElementById("impImportEstoqueFile");
+    const impBtnMrp = document.getElementById("impBtnImportMrp");
+    const impBtnEst = document.getElementById("impBtnImportEstoque");
+    function impSetMsg(text, isErr) {
+        if (!impFb) return;
+        impFb.textContent = text || "";
+        impFb.style.color = isErr ? "#f87171" : "";
+    }
+    if (impBtnMrp && impMrpIn) {
+        impBtnMrp.addEventListener("click", function () {
+            impMrpIn.click();
+        });
+        impMrpIn.addEventListener("change", function () {
+            const f = impMrpIn.files && impMrpIn.files[0];
+            impMrpIn.value = "";
+            if (!f) return;
+            const fd = new FormData();
+            fd.append("mrp", f);
+            const tok = impGetCookie("csrftoken");
+            fetch("{% url 'pcp_import_mrp' %}", {
+                method: "POST",
+                headers: tok ? { "X-CSRFToken": tok } : {},
+                body: fd,
+                credentials: "same-origin",
+            })
+                .then(function (r) {
+                    return r.json().then(function (data) {
+                        return { ok: r.ok, data: data };
+                    });
+                })
+                .then(function (res) {
+                    if (res.ok && res.data && res.data.ok) {
+                        impSetMsg(res.data.message || "MRP salvo no servidor.", false);
+                    } else {
+                        impSetMsg((res.data && res.data.error) || "Falha ao importar MRP.", true);
+                    }
+                })
+                .catch(function () {
+                    impSetMsg("Erro de rede ao importar MRP.", true);
+                });
+        });
+    }
+    if (impBtnEst && impEstIn) {
+        impBtnEst.addEventListener("click", function () {
+            impEstIn.click();
+        });
+        impEstIn.addEventListener("change", function () {
+            const f = impEstIn.files && impEstIn.files[0];
+            impEstIn.value = "";
+            if (!f) return;
+            const fd = new FormData();
+            fd.append("estoque", f);
+            const tok = impGetCookie("csrftoken");
+            fetch("{% url 'pcp_import_estoque' %}", {
+                method: "POST",
+                headers: tok ? { "X-CSRFToken": tok } : {},
+                body: fd,
+                credentials: "same-origin",
+            })
+                .then(function (r) {
+                    return r.json().then(function (data) {
+                        return { ok: r.ok, data: data };
+                    });
+                })
+                .then(function (res) {
+                    if (res.ok && res.data && res.data.ok) {
+                        impSetMsg(res.data.message || "Estoque salvo no servidor.", false);
+                    } else {
+                        impSetMsg((res.data && res.data.error) || "Falha ao importar estoque.", true);
+                    }
+                })
+                .catch(function () {
+                    impSetMsg("Erro de rede ao importar estoque.", true);
+                });
+        });
+    }
+});
+</script>
+{% endblock %}

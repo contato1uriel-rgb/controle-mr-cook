@@ -1,0 +1,1052 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Compras • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Operações • Compras{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Compras{% endblock %}
+{% block page_heading_meta %}Acessórios — estoque vs necessidade das relações{% endblock %}
+
+{% block main_class %}main-shell main-shell--fluid{% endblock %}
+
+{% block extra_head %}
+<meta name="comprar-ui-rev" content="{{ comprar_ui_rev|default:'?' }}">
+<style>
+    body.page-comprar {
+        --accent: #10b981;
+        --accent-hot: #6ee7b7;
+        --accent-2: #34d399;
+        --accent-dim: rgba(16, 185, 129, 0.14);
+        --border: rgba(16, 185, 129, 0.22);
+        --border-bright: rgba(52, 211, 153, 0.5);
+        --focus: rgba(16, 185, 129, 0.55);
+    }
+    .comprar-wrap {
+        margin-top: 14px;
+        display: grid;
+        gap: 16px;
+        max-width: min(1280px, 100%);
+    }
+    .comprar-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 22px 24px;
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, rgba(16, 24, 20, 0.42) 100%);
+        box-shadow: var(--shadow-card);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    body.page-default .comprar-card {
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, rgba(180, 186, 198, 0.04) 100%);
+        border-color: rgba(255, 255, 255, 0.18);
+    }
+    .comprar-card h2 {
+        margin: 0 0 10px;
+        font-family: var(--font-ui);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .comprar-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        color: var(--text);
+    }
+    .comprar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+        align-items: center;
+    }
+    .comprar-badge {
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(16, 185, 129, 0.45);
+        color: #a7f3d0;
+        background: rgba(16, 185, 129, 0.12);
+    }
+    .comprar-table-wrap {
+        margin-top: 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.12);
+    }
+    body.page-default .comprar-table-wrap {
+        background: rgba(255, 255, 255, 0.04);
+    }
+    .comprar-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+    .comprar-table th,
+    .comprar-table td {
+        padding: 11px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+    }
+    .comprar-table tbody tr:last-child th,
+    .comprar-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .comprar-table thead th {
+        font-family: var(--font-ui);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: rgba(0, 0, 0, 0.2);
+    }
+    body.page-default .comprar-table thead th {
+        background: rgba(255, 255, 255, 0.06);
+    }
+    .comprar-table--kv th[scope="row"] {
+        width: 30%;
+        max-width: 220px;
+        font-family: var(--font-ui);
+        font-weight: 600;
+        font-size: 0.78rem;
+        color: var(--muted);
+    }
+    .comprar-table td .comprar-actions {
+        margin-top: 0;
+    }
+    .comprar-table td p {
+        margin: 0;
+    }
+    .comprar-table code {
+        font-size: 0.84em;
+    }
+    html[data-theme="light"] .comprar-table-wrap {
+        background: rgba(0, 0, 0, 0.03);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+    html[data-theme="light"] .comprar-table thead th {
+        background: rgba(0, 0, 0, 0.04);
+    }
+    .comprar-help {
+        margin: 0 0 10px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: var(--muted);
+    }
+    .comprar-help a {
+        color: var(--accent-hot);
+    }
+    .comprar-rel-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-top: 14px;
+    }
+    .comprar-rel-toolbar .comprar-actions {
+        margin-top: 0;
+    }
+    .comprar-rel-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        margin-top: 12px;
+        max-height: 200px;
+        overflow: auto;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.08);
+    }
+    body.page-default .comprar-rel-grid {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .comprar-rel-grid label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.84rem;
+        cursor: pointer;
+        color: var(--text);
+    }
+    .comprar-table--needs {
+        min-width: 1320px;
+    }
+    .comprar-table-fullscreen-topbar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 10px 14px;
+        margin: 0;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.35);
+    }
+    body.page-default .comprar-table-fullscreen-topbar {
+        background: rgba(255, 255, 255, 0.08);
+    }
+    /* Fullscreen: o bloco é movido para document.body (escapa transform do .main-shell). */
+    .comprar-table-wrap--fullscreen {
+        position: fixed;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        margin: 0;
+        z-index: 200000;
+        border-radius: 0;
+        border: none;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        box-sizing: border-box;
+        background: #0f1118;
+        box-shadow: none;
+    }
+    html[data-theme="light"] .comprar-table-wrap--fullscreen {
+        background: #f1f5f9;
+    }
+    .comprar-table-wrap--fullscreen .comprar-table-fullscreen-topbar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        gap: 0;
+    }
+    .comprar-fs-topbar-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .comprar-fs-topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+    .comprar-fs-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        z-index: 60;
+    }
+    .comprar-fs-mini-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        width: min(360px, 92vw);
+        max-height: 70vh;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #0f1118;
+        box-shadow: var(--shadow-card);
+        padding: 8px 8px 6px;
+        z-index: 120;
+    }
+    html[data-theme="light"] .comprar-fs-mini-menu {
+        background: #f8fafc;
+    }
+    .comprar-fs-mini-menu.is-open {
+        display: block;
+    }
+    .comprar-fs-mini-menu input[type="text"] {
+        width: 100%;
+        margin: 0;
+        padding: 7px 10px;
+        font-size: 0.8rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        box-sizing: border-box;
+    }
+    .comprar-fs-mini-menu .pill-row {
+        margin-top: 6px;
+        gap: 6px;
+        display: flex;
+        flex-wrap: wrap;
+    }
+    .comprar-fs-mini-menu .pill-row .btn {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        border-radius: 8px;
+    }
+    .comprar-fs-mini-menu__list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2px;
+        margin-top: 6px;
+        max-height: 46vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .comprar-fs-mini-menu__list label {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: var(--surface-2);
+        font-size: 0.78rem;
+        line-height: 1.25;
+        color: var(--text);
+        min-height: 0;
+        cursor: pointer;
+    }
+    .comprar-fs-mini-menu__list label input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        flex-shrink: 0;
+    }
+    .comprar-fs-mini-menu__list label span {
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: left;
+    }
+    .comprar-fs-mini-menu__list label:hover {
+        border-color: var(--border);
+    }
+    .comprar-fs-filtro-painel--hidden {
+        display: none !important;
+    }
+    .comprar-table-wrap--fullscreen .comprar-table--needs {
+        min-width: 1320px;
+        width: 100%;
+    }
+    /* Esconde toda a UI (workspace, cartões, texto) para não compor por cima da tabela. */
+    body.comprar-expanded-lock .app {
+        display: none !important;
+    }
+    body.comprar-expanded-lock {
+        overflow: hidden !important;
+        background: #0f1118;
+    }
+    html[data-theme="light"] body.comprar-expanded-lock {
+        background: #f1f5f9;
+    }
+    html.comprar-expanded-lock {
+        overflow: hidden !important;
+        background: #0f1118;
+    }
+    html[data-theme="light"].comprar-expanded-lock {
+        background: #f1f5f9;
+    }
+    .comprar-table tbody tr.comprar-row--negativo td {
+        background: rgba(239, 68, 68, 0.12);
+        color: #fecaca;
+    }
+    html[data-theme="light"] .comprar-table tbody tr.comprar-row--negativo td {
+        color: #991b1b;
+    }
+    .comprar-empty {
+        margin-top: 12px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        border: 1px dashed var(--border);
+        font-size: 0.88rem;
+        color: var(--muted);
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="comprar-wrap">
+    <div class="comprar-card">
+        <h2>Visão geral</h2>
+        <div class="comprar-table-wrap">
+            <table class="comprar-table comprar-table--kv" aria-label="Visão geral da área Compras">
+                <tbody>
+                    <tr>
+                        <th scope="row">Objetivo</th>
+                        <td>
+                            Esta área vai concentrar a análise de <strong>compra de acessórios</strong>: comparar o <strong>estoque</strong>
+                            (planilha importada no navegador) com a <strong>necessidade total</strong> calculada a partir das
+                            <strong>relações</strong> e da base <strong>dados</strong> (códigos <code>Cod_Interno</code>,
+                            <code>Cód.Acessório</code>, fator, etc.), com destaque para itens em falta e visão agregada — e detalhe por
+                            relação quando fizer sentido.
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Atalhos</th>
+                        <td>
+                            <div class="comprar-actions">
+                                <span class="comprar-badge" title="Confirma que o template atual foi carregado">UI {{ comprar_ui_rev|default:"?" }}</span>
+                                <a class="btn btn-accent" href="{% url 'necessidades_carcacas' %}">Necessidades de carcaças (dados + estoque)</a>
+                                <a class="btn" href="{% url 'relacoes' %}">Relações</a>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="comprar-card">
+        <h2>Necessidade de compra (acessórios)</h2>
+        <p class="comprar-help">
+            A tabela cruza as <strong>quantidades das relações</strong> com a base <strong>dados</strong> (Excel) e o <strong>estoque</strong>,
+            como em <a href="{% url 'necessidades_carcacas' %}">Necessidades de carcaças</a>. À direita de <strong>Descrição_Acessório</strong> aparecem
+            <strong>Qtd. relações</strong>, <strong>Qtd. estoque</strong> e, logo a seguir, <strong>Saldo</strong> (estoque menos necessidade); a coluna <strong>Quantidade</strong> é a necessidade
+            (com fator aplicado). Itens marcados como <strong>OK</strong> nas relações não entram no consumo. No modo expandido use <strong>Somente negativos</strong> para ver só linhas em falta.
+            Use <strong>Expandir tabela</strong> para ecrã completo.
+        </p>
+        <div id="comprarDadosStatus" class="comprar-help"></div>
+        <div id="comprarEstoqueStatus" class="comprar-help"></div>
+        <div class="comprar-rel-toolbar">
+            <div class="comprar-actions">
+                <button type="button" class="btn btn-accent" onclick="ComprarApp.selecionarTudo()">Selecionar todas as relações</button>
+                <button type="button" class="btn" onclick="ComprarApp.limparSelecao()">Limpar seleção</button>
+                <button type="button" class="btn" id="comprarNegativosBtn" onclick="ComprarApp.toggleSomenteNegativos()">Somente negativos: OFF</button>
+                <button type="button" class="btn btn-accent" id="comprarExpandTableBtn" onclick="ComprarApp.toggleTabelaExpandida()">Expandir tabela</button>
+            </div>
+            <div id="comprarRelacoesStatus" class="comprar-help" style="margin:0;"></div>
+        </div>
+        <div id="comprarRelacoesChecks" class="comprar-rel-grid" aria-label="Seleção de relações"></div>
+        <div id="comprarDiag" class="comprar-help"></div>
+        <div class="comprar-table-wrap" id="comprarTableWrap">
+            <div class="comprar-table-fullscreen-topbar" id="comprarTableFullscreenTopbar">
+                <div class="comprar-fs-topbar-row">
+                    <button type="button" class="btn btn-accent" onclick="ComprarApp.toggleTabelaExpandida(false)">Voltar</button>
+                    <span class="comprar-help" style="margin:0;">Visualização expandida — Necessidade de compra</span>
+                    <div class="comprar-fs-topbar-right">
+                        <button type="button" class="btn" id="comprarFsFiltroToggleBtn" onclick="ComprarApp.toggleFsFiltroPainel()">
+                            Ocultar filtro
+                        </button>
+                        <div id="comprarFsFiltroPainel" class="comprar-fs-filtro-painel">
+                            <div class="comprar-fs-topbar-actions">
+                                <button type="button" class="btn" id="comprarFsRelMenuBtn" onclick="ComprarApp.toggleFsRelMenu()">
+                                    Filtrar relações
+                                </button>
+                                <div class="comprar-fs-mini-menu" id="comprarFsRelMiniMenu">
+                                    <input
+                                        id="comprarFsRelMenuBusca"
+                                        type="text"
+                                        placeholder="Buscar relação..."
+                                        autocomplete="off"
+                                        oninput="ComprarApp.filtrarFsRelMenu(this.value)"
+                                    />
+                                    <div class="pill-row" style="margin-top: 8px">
+                                        <button type="button" class="btn" onclick="ComprarApp.selecionarTudo()">Selecionar tudo</button>
+                                        <button type="button" class="btn" onclick="ComprarApp.limparSelecao()">Limpar filtros</button>
+                                    </div>
+                                    <div class="comprar-fs-mini-menu__list" id="comprarFsRelMenuList"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn" id="comprarNegativosBtnFs" onclick="ComprarApp.toggleSomenteNegativos()">
+                            Somente negativos: OFF
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <table class="comprar-table comprar-table--needs" aria-label="Necessidade de compra por linha de acessório">
+                <thead>
+                    <tr id="comprarNeedsHeader"></tr>
+                </thead>
+                <tbody id="comprarNeedsBody"></tbody>
+            </table>
+        </div>
+        <div id="comprarNeedsVazio" class="comprar-empty" style="display:none;">
+            Importe os dados e o estoque em <a href="{% url 'necessidades_carcacas' %}">Necessidades de carcaças</a> e volte a esta página.
+        </div>
+    </div>
+
+    <div class="comprar-card">
+        <h2>Pré-requisitos (já usados no sistema)</h2>
+        <div class="comprar-table-wrap">
+            <table class="comprar-table" aria-label="Pré-requisitos para Compras">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Pré-requisito</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><strong>Dados</strong> e <strong>estoque</strong> importados na página Necessidades de Carcaças (armazenamento local no navegador).</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><strong>Relações</strong> com itens OK / quantidades e <code>codigo_produto</code> alinhado ao <code>Cod_Interno</code> da base.</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>O ficheiro <strong>MRP</strong> no sistema serve hoje sobretudo para <strong>ODF</strong>; o estoque de acessório não vem do MRP.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="comprar-card">
+        <h2>Próximos passos</h2>
+        <div class="comprar-table-wrap">
+            <table class="comprar-table" aria-label="Próximos passos da área Compras">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Funcionalidade prevista</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Tabela com linhas a vermelho quando saldo &lt; 0 — disponível na secção acima (filtro «Somente negativos»).</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Filtros por nome (ex.: «etiqueta», «caixa» / «caixas») com comparação insensível a maiúsculas.</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>Botão para abrir o detalhe consumido por relação.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
+(function () {
+    const ComprarApp = {
+        STORAGE_KEY: "cmc_dados_carcacas_v1",
+        ESTOQUE_KEY: "cmc_estoque_carcacas_v1",
+        RELACOES: {{ relacoes_json|safe }},
+        DATA_COLS: [
+            "Cod_Interno",
+            "Descrição_Produto",
+            "Cód.Acessório",
+            "Descrição_Acessório",
+            "Fator",
+            "Codigo_Disco/chapa",
+            "Descrição_Disco/chapa",
+            "Codigo_Disco/chapa1",
+            "Descrição_Disco/chapa1",
+        ],
+        NEEDS_COLS: [
+            "Cod_Interno",
+            "Descrição_Produto",
+            "Cód.Acessório",
+            "Descrição_Acessório",
+            "Qtd. relações",
+            "Qtd. estoque",
+            "Saldo",
+            "Fator",
+            "Codigo_Disco/chapa",
+            "Descrição_Disco/chapa",
+            "Codigo_Disco/chapa1",
+            "Descrição_Disco/chapa1",
+            "Quantidade",
+        ],
+        state: {
+            dados: [],
+            needs: [],
+            estoqueMap: {},
+            somenteNegativos: false,
+            tabelaExpandida: false,
+        },
+
+        normalizeText(t) {
+            return String(t ?? "")
+                .trim()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase();
+        },
+        _comprarWrapRestore: null,
+        emptyDefaultHtml: "",
+
+        normalizeCode(t) {
+            return String(t ?? "").trim();
+        },
+
+        normalizeCodeKey(t) {
+            const raw = this.normalizeCode(t);
+            if (!raw) return "";
+            const onlyDigits = raw.replace(/\D/g, "");
+            if (onlyDigits) {
+                const n = String(parseInt(onlyDigits, 10));
+                return n === "NaN" ? onlyDigits : n;
+            }
+            return raw.replace(/\s+/g, "").toUpperCase();
+        },
+
+        toNumber(t) {
+            if (t === null || t === undefined) return 0;
+            const s = String(t).trim();
+            if (!s) return 0;
+            const hasComma = s.includes(",");
+            const hasDot = s.includes(".");
+            let normalized = s.replace(/\s/g, "");
+            if (hasComma && hasDot) {
+                normalized = normalized.replace(/\./g, "").replace(",", ".");
+            } else if (hasComma) {
+                normalized = normalized.replace(",", ".");
+            }
+            const n = Number(normalized);
+            return Number.isFinite(n) ? n : 0;
+        },
+
+        loadDados() {
+            try {
+                const raw = localStorage.getItem(this.STORAGE_KEY) || "[]";
+                const parsed = JSON.parse(raw);
+                this.state.dados = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                this.state.dados = [];
+            }
+            try {
+                const rawEstoque = localStorage.getItem(this.ESTOQUE_KEY) || "{}";
+                const parsedEstoque = JSON.parse(rawEstoque);
+                this.state.estoqueMap = parsedEstoque && typeof parsedEstoque === "object" ? parsedEstoque : {};
+            } catch (e) {
+                this.state.estoqueMap = {};
+            }
+            const srv =
+                typeof window.__CMC_ESTOQUE_SERVIDOR__ !== "undefined" &&
+                window.__CMC_ESTOQUE_SERVIDOR__ &&
+                typeof window.__CMC_ESTOQUE_SERVIDOR__ === "object"
+                    ? window.__CMC_ESTOQUE_SERVIDOR__
+                    : null;
+            if (srv && Object.keys(srv).length) {
+                this.state.estoqueMap = { ...srv };
+                try {
+                    localStorage.setItem(this.ESTOQUE_KEY, JSON.stringify(this.state.estoqueMap));
+                } catch (e2) {}
+            }
+            this.updateStatusLabels();
+        },
+
+        updateStatusLabels() {
+            const elD = document.getElementById("comprarDadosStatus");
+            const n = this.state.dados.length;
+            if (elD) {
+                elD.textContent = n
+                    ? "Dados carregados: " + n + " linha(s)."
+                    : "Nenhum dado importado. Use Necessidades de carcaças para importar o Excel de dados.";
+            }
+            const elE = document.getElementById("comprarEstoqueStatus");
+            if (elE) {
+                const estCount = Object.keys(this.state.estoqueMap || {}).length;
+                elE.textContent = estCount
+                    ? "Estoque carregado: " + estCount + " item(ns)."
+                    : "Nenhum estoque importado (opcional para ver saldo).";
+            }
+        },
+
+        renderRelacoes() {
+            const wrap = document.getElementById("comprarRelacoesChecks");
+            if (!wrap) return;
+            wrap.innerHTML = "";
+            const rels = this.RELACOES || [];
+            if (!rels.length) {
+                wrap.innerHTML = "<div class='comprar-help' style='margin:0;'>Nenhuma relação cadastrada.</div>";
+                return;
+            }
+            rels.forEach((rel) => {
+                const label = document.createElement("label");
+                label.innerHTML =
+                    '<input type="checkbox" value="' +
+                    rel.id +
+                    '" data-comprar-rel-id="' +
+                    rel.id +
+                    '" onchange="ComprarApp.updateRelacoesStatus()">' +
+                    "<span>" +
+                    (rel.nome || "Sem nome") +
+                    "</span>";
+                wrap.appendChild(label);
+            });
+            this.renderFsRelMenuList();
+            this.syncFsRelMenuChecksFromMain();
+        },
+
+        renderFsRelMenuList() {
+            const wrap = document.getElementById("comprarFsRelMenuList");
+            if (!wrap) return;
+            wrap.innerHTML = "";
+            const rels = this.RELACOES || [];
+            if (!rels.length) {
+                wrap.innerHTML = "<div class='comprar-help' style='margin:0;'>Nenhuma relação cadastrada.</div>";
+                return;
+            }
+            rels.forEach((rel) => {
+                const label = document.createElement("label");
+                label.setAttribute("data-rel-name", this.normalizeText(rel.nome || ""));
+                label.innerHTML =
+                    '<input type="checkbox" value="' +
+                    rel.id +
+                    '" data-comprar-rel-id-menu="' +
+                    rel.id +
+                    '" onchange="ComprarApp.toggleRelacaoFsMenu(this)">' +
+                    "<span>" +
+                    (rel.nome || "Sem nome") +
+                    "</span>";
+                wrap.appendChild(label);
+            });
+        },
+
+        toggleRelacaoFsMenu(input) {
+            const id = String(input.value);
+            const base = document.querySelector('#comprarRelacoesChecks input[data-comprar-rel-id="' + id + '"]');
+            if (base) base.checked = !!input.checked;
+            this.updateRelacoesStatus();
+        },
+
+        syncFsRelMenuChecksFromMain() {
+            const ids = new Set(this.getSelectedIds().map(String));
+            document.querySelectorAll("#comprarFsRelMenuList input[data-comprar-rel-id-menu]").forEach((c) => {
+                c.checked = ids.has(String(c.value));
+            });
+        },
+
+        toggleFsRelMenu(force) {
+            const menu = document.getElementById("comprarFsRelMiniMenu");
+            if (!menu) return;
+            const next = typeof force === "boolean" ? force : !menu.classList.contains("is-open");
+            menu.classList.toggle("is-open", next);
+            if (next) {
+                this.renderFsRelMenuList();
+                this.syncFsRelMenuChecksFromMain();
+                const busca = document.getElementById("comprarFsRelMenuBusca");
+                if (busca) {
+                    busca.value = "";
+                    busca.focus();
+                }
+                this.filtrarFsRelMenu("");
+            }
+        },
+
+        filtrarFsRelMenu(term) {
+            const t = this.normalizeText(term);
+            document.querySelectorAll("#comprarFsRelMenuList label").forEach((label) => {
+                const nm = label.getAttribute("data-rel-name") || "";
+                label.style.display = !t || nm.includes(t) ? "" : "none";
+            });
+        },
+
+        toggleFsFiltroPainel() {
+            const panel = document.getElementById("comprarFsFiltroPainel");
+            const btn = document.getElementById("comprarFsFiltroToggleBtn");
+            if (!panel || !btn) return;
+            const willHide = !panel.classList.contains("comprar-fs-filtro-painel--hidden");
+            panel.classList.toggle("comprar-fs-filtro-painel--hidden", willHide);
+            btn.textContent = willHide ? "Mostrar filtro" : "Ocultar filtro";
+            if (willHide) this.toggleFsRelMenu(false);
+        },
+
+        renderNeedsHeader() {
+            const tr = document.getElementById("comprarNeedsHeader");
+            if (!tr) return;
+            tr.innerHTML = "";
+            this.NEEDS_COLS.forEach((col) => {
+                const th = document.createElement("th");
+                th.scope = "col";
+                th.textContent = col;
+                tr.appendChild(th);
+            });
+        },
+
+        getSelectedIds() {
+            return Array.from(
+                document.querySelectorAll("#comprarRelacoesChecks input[type='checkbox']:checked")
+            )
+                .map((x) => Number(x.value))
+                .filter((x) => Number.isFinite(x));
+        },
+
+        selecionarTudo() {
+            document.querySelectorAll("#comprarRelacoesChecks input[type='checkbox']").forEach((c) => {
+                c.checked = true;
+            });
+            this.updateRelacoesStatus();
+        },
+
+        limparSelecao() {
+            document.querySelectorAll("#comprarRelacoesChecks input[type='checkbox']").forEach((c) => {
+                c.checked = false;
+            });
+            this.updateRelacoesStatus();
+        },
+
+        updateRelacoesStatus() {
+            const el = document.getElementById("comprarRelacoesStatus");
+            const ids = this.getSelectedIds();
+            if (el) {
+                el.textContent = ids.length
+                    ? "Relações selecionadas: " + ids.length + "."
+                    : "Nenhuma relação selecionada.";
+            }
+            this.syncFsRelMenuChecksFromMain();
+            this.atualizarTabela();
+        },
+
+        toggleSomenteNegativos() {
+            this.state.somenteNegativos = !this.state.somenteNegativos;
+            const t = "Somente negativos: " + (this.state.somenteNegativos ? "ON" : "OFF");
+            const btn = document.getElementById("comprarNegativosBtn");
+            const btnFs = document.getElementById("comprarNegativosBtnFs");
+            if (btn) btn.textContent = t;
+            if (btnFs) btnFs.textContent = t;
+            this.renderNeedsBody();
+        },
+
+        toggleTabelaExpandida(force) {
+            const wrap = document.getElementById("comprarTableWrap");
+            const btn = document.getElementById("comprarExpandTableBtn");
+            if (!wrap) return;
+            const next = typeof force === "boolean" ? force : !this.state.tabelaExpandida;
+            this.state.tabelaExpandida = next;
+
+            if (next) {
+                if (!this._comprarWrapRestore) {
+                    this._comprarWrapRestore = { parent: wrap.parentNode, next: wrap.nextSibling };
+                }
+                wrap.classList.add("comprar-table-wrap--fullscreen");
+                if (wrap.parentNode !== document.body) {
+                    document.body.appendChild(wrap);
+                }
+                document.body.classList.add("comprar-expanded-lock");
+                document.documentElement.classList.add("comprar-expanded-lock");
+                this.renderFsRelMenuList();
+                this.syncFsRelMenuChecksFromMain();
+                this.toggleFsRelMenu(false);
+            } else {
+                wrap.classList.remove("comprar-table-wrap--fullscreen");
+                this.toggleFsRelMenu(false);
+                const r = this._comprarWrapRestore;
+                if (r && r.parent && wrap.parentNode === document.body) {
+                    if (r.next) {
+                        r.parent.insertBefore(wrap, r.next);
+                    } else {
+                        r.parent.appendChild(wrap);
+                    }
+                }
+                document.body.classList.remove("comprar-expanded-lock");
+                document.documentElement.classList.remove("comprar-expanded-lock");
+            }
+            if (btn) btn.textContent = next ? "Fechar expansão" : "Expandir tabela";
+        },
+
+        atualizarTabela() {
+            const emptyEl = document.getElementById("comprarNeedsVazio");
+            const diag = document.getElementById("comprarDiag");
+
+            if (!this.state.dados.length) {
+                if (emptyEl) emptyEl.style.display = "block";
+                this.state.needs = [];
+                this.renderNeedsBody();
+                if (diag) diag.textContent = "Diagnóstico: nenhum dado importado.";
+                return;
+            }
+
+            const effectiveSelectedRelIds = this.getSelectedIds();
+            if (!effectiveSelectedRelIds.length) {
+                if (emptyEl) emptyEl.style.display = "block";
+                this.state.needs = [];
+                this.renderNeedsBody();
+                if (diag) diag.textContent = "Diagnóstico: nenhuma relação selecionada.";
+                return;
+            }
+
+            const qtdPorProduto = {};
+            effectiveSelectedRelIds.forEach((relId) => {
+                const rel = this.RELACOES.find((r) => Number(r.id) === Number(relId));
+                if (!rel || !Array.isArray(rel.itens)) return;
+                rel.itens.forEach((it) => {
+                    if (it && it.ok) return;
+                    const cod = this.normalizeCodeKey(it.codigo_produto);
+                    if (!cod || cod === "NaN") return;
+                    const q = this.toNumber(it.quantidade);
+                    qtdPorProduto[cod] = (qtdPorProduto[cod] || 0) + q;
+                });
+            });
+
+            const candidatos = [];
+            const semMatch = [];
+            Object.keys(qtdPorProduto).forEach((cod) => {
+                const qtd = qtdPorProduto[cod];
+                let found = false;
+                this.state.dados.forEach((d) => {
+                    if (this.normalizeCodeKey(d["Cod_Interno"]) !== cod) return;
+                    found = true;
+                    candidatos.push({ ...d, Quantidade: qtd });
+                });
+                if (!found) semMatch.push(cod);
+            });
+
+            const group = new Map();
+            candidatos.forEach((r) => {
+                const key = this.DATA_COLS.map((k) => String(r[k] ?? "")).join("|");
+                if (!group.has(key)) {
+                    const copy = { ...r };
+                    copy.Quantidade = 0;
+                    group.set(key, copy);
+                }
+                const obj = group.get(key);
+                obj.Quantidade = obj.Quantidade + this.toNumber(r.Quantidade);
+            });
+
+            const needs = Array.from(group.values());
+            needs.sort((a, b) => {
+                const da = String(a["Descrição_Acessório"] || "").localeCompare(String(b["Descrição_Acessório"] || ""), "pt-BR");
+                return da;
+            });
+
+            needs.forEach((r) => {
+                const codAcessorio = this.normalizeCodeKey(r["Cód.Acessório"]);
+                const estoque = Number(this.state.estoqueMap[codAcessorio] || 0);
+                const fator = this.toNumber(r["Fator"] || 0);
+                const qtdRelacoes = this.toNumber(r["Quantidade"] || 0);
+                const necessidade = fator > 0 ? qtdRelacoes * fator : qtdRelacoes;
+                r["Qtd. relações"] = qtdRelacoes;
+                r["Qtd. estoque"] = estoque;
+                r["Quantidade"] = necessidade;
+                r["Saldo"] = estoque - necessidade;
+            });
+
+            this.state.needs = needs;
+            this.renderNeedsBody();
+            if (emptyEl) emptyEl.style.display = needs.length ? "none" : "block";
+            if (diag) {
+                const codsRel = Object.keys(qtdPorProduto).length;
+                const sample = semMatch.slice(0, 8).join(", ");
+                diag.textContent =
+                    "Diagnóstico: códigos nas relações=" +
+                    codsRel +
+                    ", linhas cadastro=" +
+                    this.state.dados.length +
+                    ", linhas geradas=" +
+                    needs.length +
+                    ", sem correspondência Cod_Interno=" +
+                    semMatch.length +
+                    (sample ? " (ex.: " + sample + ")" : "") +
+                    ".";
+            }
+        },
+
+        renderNeedsBody() {
+            const tbody = document.getElementById("comprarNeedsBody");
+            if (!tbody) return;
+            tbody.innerHTML = "";
+
+            const empty = document.getElementById("comprarNeedsVazio");
+            if (!this.state.needs.length) {
+                if (empty) {
+                    empty.style.display = "block";
+                    empty.innerHTML = this.emptyDefaultHtml;
+                }
+                return;
+            }
+
+            const fmt = (v) => {
+                if (v === null || v === undefined) return "";
+                if (typeof v === "number") return String(v);
+                return String(v);
+            };
+
+            const rows = this.state.somenteNegativos
+                ? this.state.needs.filter((r) => this.toNumber(r["Saldo"] || 0) < 0)
+                : this.state.needs;
+            if (empty) {
+                empty.style.display = rows.length ? "none" : "block";
+                if (!rows.length && this.state.somenteNegativos) {
+                    empty.textContent = "Não há itens com saldo negativo para o filtro atual.";
+                } else if (!rows.length) {
+                    empty.innerHTML = this.emptyDefaultHtml;
+                }
+            }
+
+            rows.forEach((row) => {
+                const tr = document.createElement("tr");
+                const saldo = this.toNumber(row["Saldo"] || 0);
+                if (saldo < 0) tr.classList.add("comprar-row--negativo");
+                this.NEEDS_COLS.forEach((col) => {
+                    const td = document.createElement("td");
+                    const val = row[col];
+                    td.textContent = val === null || val === undefined || val === "" ? "" : fmt(val);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        init() {
+            const ev = document.getElementById("comprarNeedsVazio");
+            this.emptyDefaultHtml = ev ? ev.innerHTML : "";
+            this.renderRelacoes();
+            this.loadDados();
+            this.renderNeedsHeader();
+            this.selecionarTudo();
+            this.updateRelacoesStatus();
+            const t0 = "Somente negativos: " + (this.state.somenteNegativos ? "ON" : "OFF");
+            const btnFs0 = document.getElementById("comprarNegativosBtnFs");
+            if (btnFs0) btnFs0.textContent = t0;
+            window.addEventListener("storage", (e) => {
+                if (e.key === this.STORAGE_KEY || e.key === this.ESTOQUE_KEY) {
+                    this.loadDados();
+                    this.atualizarTabela();
+                }
+            });
+            document.addEventListener("keydown", (ev) => {
+                if (ev.key === "Escape" && this.state.tabelaExpandida) {
+                    ev.preventDefault();
+                    this.toggleTabelaExpandida(false);
+                }
+            });
+            document.addEventListener("click", (ev) => {
+                const menu = document.getElementById("comprarFsRelMiniMenu");
+                const btn = document.getElementById("comprarFsRelMenuBtn");
+                if (!menu || !menu.classList.contains("is-open")) return;
+                const target = ev.target;
+                if (menu.contains(target) || (btn && btn.contains(target))) return;
+                ComprarApp.toggleFsRelMenu(false);
+            });
+        },
+    };
+
+    window.ComprarApp = ComprarApp;
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => ComprarApp.init());
+    } else {
+        ComprarApp.init();
+    }
+})();
+</script>
+{% endblock %}

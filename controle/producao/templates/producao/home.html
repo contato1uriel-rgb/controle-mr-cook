@@ -1,0 +1,1075 @@
+{% extends "producao/base.html" %}
+
+{% block title %}CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Painel industrial{% endblock %}
+{% block breadcrumb %}Início{% endblock %}
+{% block page_heading %}Painel{% endblock %}
+{% block page_heading_meta %}Produção por turno · registros locais{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .dash-page {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        padding-bottom: 8px;
+    }
+
+    /* Reordena seções (gráfico acima dos módulos) */
+    .dash-kpi-section { order: 1; }
+    .dash-loss-section { order: 2; }
+    .dash-modules-section { order: 3; }
+
+    .dash-hero {
+        display: grid;
+        grid-template-columns: 1fr minmax(200px, 280px);
+        gap: 28px;
+        align-items: stretch;
+        padding: 0;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(145deg, rgba(10, 16, 26, 0.42) 0%, rgba(8, 12, 20, 0.58) 100%);
+        backdrop-filter: blur(var(--blur-glass));
+        -webkit-backdrop-filter: blur(var(--blur-glass));
+        box-shadow: var(--shadow-card);
+        position: relative;
+        overflow: hidden;
+        transition: box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+    body.page-default .dash-hero {
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.11) 0%, rgba(188, 200, 220, 0.04) 100%);
+        border-color: rgba(255, 255, 255, 0.20);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.24),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+            0 10px 20px rgba(0, 0, 0, 0.20),
+            0 24px 40px rgba(0, 0, 0, 0.14);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    }
+    body.page-default .dash-hero:hover {
+        transform: translateY(-4px) scale(1.004);
+        border-color: rgba(255, 255, 255, 0.28);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.28),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+            0 14px 26px rgba(0, 0, 0, 0.24),
+            0 34px 54px rgba(0, 0, 0, 0.18);
+    }
+    .dash-hero:hover {
+        box-shadow: var(--shadow-card-hover);
+        border-color: rgba(59, 130, 246, 0.25);
+    }
+    .dash-hero::before {
+        content: "";
+        position: absolute;
+        top: -20%;
+        right: -10%;
+        width: 55%;
+        height: 120%;
+        background:
+            radial-gradient(ellipse at 70% 30%, rgba(99, 102, 241, 0.14), transparent 55%),
+            radial-gradient(ellipse at center, rgba(59, 130, 246, 0.08), transparent 60%);
+        pointer-events: none;
+    }
+    .dash-hero__main {
+        position: relative;
+        z-index: 1;
+        padding: 28px 8px 28px 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 14px;
+    }
+    .dash-hero__aside {
+        position: relative;
+        z-index: 1;
+        padding: 22px 24px 22px 16px;
+        border-left: 1px solid var(--border);
+        background: rgba(4, 10, 18, 0.32);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        justify-content: center;
+    }
+    body.page-default .dash-hero__aside {
+        border-left-color: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.05);
+    }
+    @media (max-width: 860px) {
+        .dash-hero {
+            grid-template-columns: 1fr;
+        }
+        .dash-hero__aside {
+            border-left: none;
+            border-top: 1px solid var(--border);
+            padding: 20px 24px 24px;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+    }
+
+    .dash-hero__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: clamp(1.75rem, 4vw, 2.65rem);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text);
+        line-height: 1.05;
+        text-shadow: none;
+    }
+    .dash-hero__lead {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--muted);
+        line-height: 1.65;
+        max-width: 48ch;
+        font-family: var(--font-ui);
+    }
+    .dash-hero__aside .turno-legend {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    @media (max-width: 860px) {
+        .dash-hero__aside .turno-legend {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+    }
+
+    .dash-mod-grid {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        grid-template-rows: auto auto;
+        gap: 14px;
+        padding: 4px 2px 12px;
+    }
+    @media (max-width: 900px) {
+        .dash-mod-grid {
+            grid-template-columns: 1fr;
+            grid-template-rows: none;
+        }
+        .dash-mod-stack {
+            grid-row: auto;
+        }
+        .dash-mod--feature {
+            grid-row: auto;
+            min-height: 200px !important;
+        }
+    }
+    .dash-mod--feature {
+        grid-row: span 2;
+        min-height: 180px;
+        padding: 22px 22px;
+        justify-content: flex-start;
+    }
+    .dash-mod--feature .dash-mod__desc {
+        max-width: 32ch;
+        font-size: 0.84rem;
+    }
+    .dash-mod-stack {
+        grid-row: span 2;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 0;
+    }
+    .dash-mod--compact {
+        min-height: 92px;
+        flex: 1;
+    }
+    .dash-mod--wide {
+        grid-column: 1 / -1;
+        min-height: 90px;
+        flex-direction: row;
+        align-items: center;
+        gap: 20px;
+        padding: 18px 20px;
+    }
+    .dash-mod--wide .dash-mod__icon {
+        margin: 0;
+    }
+    .dash-mod--wide .dash-mod__arrow {
+        margin-top: 0;
+        margin-left: auto;
+    }
+
+    .dash-mod {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 18px 18px;
+        min-height: 118px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(10, 16, 26, 0.40) 0%, rgba(8, 12, 20, 0.54) 100%);
+        backdrop-filter: blur(var(--blur-glass));
+        -webkit-backdrop-filter: blur(var(--blur-glass));
+        box-shadow: var(--shadow-card);
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.22s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+        overflow: hidden;
+    }
+    body.page-default .dash-mod {
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.11) 0%, rgba(188, 200, 220, 0.04) 100%);
+        border-color: rgba(255, 255, 255, 0.20);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.24),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+            0 10px 20px rgba(0, 0, 0, 0.20),
+            0 24px 40px rgba(0, 0, 0, 0.14);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .dash-mod::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: var(--radius-card);
+        background: linear-gradient(180deg, transparent 35%, rgba(59, 130, 246, 0.05) 100%);
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+    }
+    .dash-mod--feature:hover {
+        transform: translateY(-4px);
+    }
+    .dash-mod:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-card-hover);
+    }
+    .dash-mod:hover::after { opacity: 1; }
+
+    .dash-mod__icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--stroke-ink, #0a0a0a);
+    }
+    .dash-mod--a .dash-mod__icon {
+        background: linear-gradient(145deg, var(--accent-hot), var(--accent));
+        border: 2px solid var(--stroke-ink, #0a0a0a);
+        box-shadow: none;
+    }
+    .dash-mod--b .dash-mod__icon { background: linear-gradient(135deg, var(--turno-1), #00cc6a); }
+    .dash-mod--c .dash-mod__icon { background: linear-gradient(135deg, var(--turno-2), #0066cc); }
+    .dash-mod--d .dash-mod__icon { background: linear-gradient(135deg, var(--turno-3), #ffaa00); }
+
+    .dash-mod__name {
+        font-family: var(--font-display);
+        font-size: 0.88rem;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text);
+    }
+    .dash-mod__desc {
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.45;
+    }
+    .dash-mod__arrow {
+        margin-top: auto;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+    }
+
+    .dash-charts-block {
+        padding: 24px;
+    }
+    .dash-pies-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+        padding: 4px 2px 8px;
+    }
+    @media (max-width: 1000px) {
+        .dash-pies-grid { grid-template-columns: 1fr; }
+    }
+
+    .dash-pie-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 280px;
+        padding: 20px 16px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: linear-gradient(165deg, rgba(10, 16, 26, 0.40) 0%, rgba(8, 12, 20, 0.54) 100%);
+        backdrop-filter: blur(var(--blur-glass));
+        -webkit-backdrop-filter: blur(var(--blur-glass));
+        box-shadow: var(--shadow-card);
+        transition: box-shadow 0.25s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+    body.page-default .dash-pie-card {
+        background: linear-gradient(165deg, rgba(255, 255, 255, 0.11) 0%, rgba(188, 200, 220, 0.04) 100%);
+        border-color: rgba(255, 255, 255, 0.20);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.24),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+            0 10px 20px rgba(0, 0, 0, 0.20),
+            0 24px 40px rgba(0, 0, 0, 0.14);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .dash-pie-card:hover {
+        border-color: rgba(59, 130, 246, 0.25);
+        box-shadow: var(--shadow-card-hover);
+        transform: translateY(-2px);
+    }
+    .dash-pie-card--t1 { box-shadow: var(--shadow-card), inset 0 -4px 0 rgba(22, 163, 74, 0.25); }
+    .dash-pie-card--t2 { box-shadow: var(--shadow-card), inset 0 -4px 0 rgba(59, 130, 246, 0.25); }
+    .dash-pie-card--t3 { box-shadow: var(--shadow-card), inset 0 -4px 0 rgba(245, 158, 11, 0.22); }
+    .dash-pie-card--t1:hover { box-shadow: var(--shadow-card-hover), inset 0 -4px 0 rgba(22, 163, 74, 0.42); }
+    .dash-pie-card--t2:hover { box-shadow: var(--shadow-card-hover), inset 0 -4px 0 rgba(59, 130, 246, 0.40); }
+    .dash-pie-card--t3:hover { box-shadow: var(--shadow-card-hover), inset 0 -4px 0 rgba(245, 158, 11, 0.40); }
+
+    .dash-pie-badge {
+        font-family: var(--font-display);
+        font-size: 0.72rem;
+        font-weight: 400;
+        letter-spacing: 0.12em;
+        text-align: center;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .dash-pie-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 220px;
+    }
+    .dash-pie-wrap canvas { display: block; }
+    .dash-pie-help {
+        margin: 0 0 14px;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: var(--muted);
+        max-width: 62ch;
+    }
+    .dash-prod-detail {
+        margin-top: 4px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .dash-prod-detail[hidden] {
+        display: none !important;
+    }
+    .dash-prod-detail__table {
+        width: 100%;
+        min-width: 420px;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+        font-variant-numeric: tabular-nums;
+    }
+    .dash-prod-detail__table caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 0 0 8px;
+    }
+    .dash-prod-detail__table th,
+    .dash-prod-detail__table td {
+        padding: 8px 10px;
+        text-align: right;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+    }
+    .dash-prod-detail__table th:first-child,
+    .dash-prod-detail__table td:first-child {
+        text-align: left;
+    }
+    .dash-prod-detail__table thead th {
+        font-family: var(--font-ui);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: rgba(0, 0, 0, 0.12);
+    }
+    html[data-theme="light"] .dash-prod-detail__table thead th {
+        background: rgba(0, 0, 0, 0.04);
+    }
+    .dash-prod-detail__table tbody tr:nth-child(1) td:first-child { color: var(--turno-1); font-weight: 600; }
+    .dash-prod-detail__table tbody tr:nth-child(2) td:first-child { color: var(--turno-2); font-weight: 600; }
+    .dash-prod-detail__table tbody tr:nth-child(3) td:first-child { color: var(--turno-3); font-weight: 600; }
+    .dash-prod-detail__table tfoot td {
+        font-weight: 700;
+        border-bottom: none;
+        padding-top: 10px;
+    }
+    .dash-prod-detail__table .dash-prod-detail__hint {
+        font-size: 0.72rem;
+        color: var(--muted);
+        font-weight: 400;
+        padding-top: 10px;
+        text-align: left;
+        border: none;
+    }
+
+    /* KPIs Produção · unidades — linha (14 dias) ao lado do valor, sem aumentar altura do card */
+    .dash-kpi-section .ind-kpi-card__mid {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 0 0 4px;
+        min-height: 0;
+    }
+    .dash-kpi-section .ind-kpi-card__mid .ind-kpi-card__value {
+        margin: 0;
+        flex: 1 1 auto;
+        min-width: 0;
+        line-height: 1.05;
+    }
+    .dash-kpi-section .ind-kpi-card__spark-wrap {
+        flex: 0 0 72px;
+        width: 72px;
+        height: 38px;
+        position: relative;
+        pointer-events: none;
+    }
+    .dash-kpi-section .ind-kpi-card__spark-wrap canvas {
+        display: block;
+    }
+
+    /* Tema claro — Painel: legenda de turnos e KPIs “Produção · unidades” em preto */
+    html[data-theme="light"] body.page-default .dash-hero__aside {
+        background: var(--panel-degrade-vertical) !important;
+        border-left-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    html[data-theme="light"] body.page-default .dash-hero__aside .sidebar__label {
+        color: rgba(255, 255, 255, 0.5) !important;
+    }
+    html[data-theme="light"] body.page-default .dash-hero__aside .turno-chip__txt {
+        color: rgba(245, 245, 245, 0.92) !important;
+    }
+    @media (max-width: 860px) {
+        html[data-theme="light"] body.page-default .dash-hero__aside {
+            border-top-color: rgba(255, 255, 255, 0.12) !important;
+        }
+    }
+
+</style>
+{% endblock %}
+
+{% block concept_banner %}{% endblock %}
+
+{% block content %}
+<div class="dash-page">
+    <section class="dash-hero" aria-label="Boas-vindas">
+        <div class="dash-hero__main">
+            <h2 class="dash-hero__title">CONTROLE MR. COOK</h2>
+            <p class="dash-hero__lead">Indicadores por turno e distribuição por máquina a partir dos registros locais do navegador.</p>
+        </div>
+        <div class="dash-hero__aside">
+            <span class="sidebar__label" style="margin:0;padding:0 0 4px;opacity:0.9;">Legenda · turnos</span>
+            <div class="turno-legend">
+                <span class="turno-chip turno-chip--1"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">1º turno</span></span>
+                <span class="turno-chip turno-chip--2"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">2º turno</span></span>
+                <span class="turno-chip turno-chip--3"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">3º turno</span></span>
+            </div>
+        </div>
+    </section>
+
+    <section aria-labelledby="dash-kpi-heading" class="dash-kpi-section">
+        <h2 id="dash-kpi-heading" class="ind-section-label">
+            <span class="ind-section-label__num">01</span>
+            <span class="ind-section-label__text">Produção · unidades</span>
+        </h2>
+        <div class="ind-kpi-strip">
+            <article class="ind-kpi-card ind-kpi-card--t1">
+                <p class="ind-kpi-card__label">1º turno</p>
+                <div class="ind-kpi-card__mid">
+                    <p class="ind-kpi-card__value" id="indKpiT1">0</p>
+                    <div class="ind-kpi-card__spark-wrap"><canvas id="indKpiSparkT1" aria-label="Unidades por dia — 1º turno (14 dias)"></canvas></div>
+                </div>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+            <article class="ind-kpi-card ind-kpi-card--t2">
+                <p class="ind-kpi-card__label">2º turno</p>
+                <div class="ind-kpi-card__mid">
+                    <p class="ind-kpi-card__value" id="indKpiT2">0</p>
+                    <div class="ind-kpi-card__spark-wrap"><canvas id="indKpiSparkT2" aria-label="Unidades por dia — 2º turno (14 dias)"></canvas></div>
+                </div>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+            <article class="ind-kpi-card ind-kpi-card--t3">
+                <p class="ind-kpi-card__label">3º turno</p>
+                <div class="ind-kpi-card__mid">
+                    <p class="ind-kpi-card__value" id="indKpiT3">0</p>
+                    <div class="ind-kpi-card__spark-wrap"><canvas id="indKpiSparkT3" aria-label="Unidades por dia — 3º turno (14 dias)"></canvas></div>
+                </div>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+            <article class="ind-kpi-card ind-kpi-card--tot">
+                <p class="ind-kpi-card__label">Total geral</p>
+                <div class="ind-kpi-card__mid">
+                    <p class="ind-kpi-card__value" id="indKpiTotal">0</p>
+                    <div class="ind-kpi-card__spark-wrap"><canvas id="indKpiSparkTot" aria-label="Unidades por dia — total (14 dias)"></canvas></div>
+                </div>
+                <span class="ind-kpi-card__unit">Unidades</span>
+            </article>
+        </div>
+    </section>
+
+    <section aria-label="Módulos" class="dash-modules-section">
+        <h2 class="ind-section-label">
+            <span class="ind-section-label__num">03</span>
+            <span class="ind-section-label__text">Módulos</span>
+        </h2>
+        <div class="dash-mod-grid">
+            <a class="dash-mod dash-mod--feature dash-mod--a" href="{% url 'relacoes' %}">
+                <span class="dash-mod__icon">R</span>
+                <span class="dash-mod__name">Relações</span>
+                <span class="dash-mod__desc">Importação de planilhas, coluna OK e visão geral das relações em aberto.</span>
+                <span class="dash-mod__arrow">Abrir módulo →</span>
+            </a>
+            <div class="dash-mod-stack">
+                <a class="dash-mod dash-mod--compact dash-mod--b" href="{% url 'controle_producao_login' %}">
+                     <span class="dash-mod__icon">P</span>
+                    <span class="dash-mod__name">Produção</span>
+                    <span class="dash-mod__desc">Caçarolas · turnos.</span>
+                    <span class="dash-mod__arrow">→</span>
+                </a>
+                <a class="dash-mod dash-mod--compact dash-mod--c" href="{% url 'mega' %}">
+                    <span class="dash-mod__icon">M</span>
+                    <span class="dash-mod__name">MEGA</span>
+                    <span class="dash-mod__desc">Ordens MEGA.</span>
+                    <span class="dash-mod__arrow">→</span>
+                </a>
+                <a class="dash-mod dash-mod--compact dash-mod--b" href="{% url 'necessidades_carcacas' %}">
+                    <span class="dash-mod__icon">N</span>
+                    <span class="dash-mod__name">Necessidades de Carcaças</span>
+                    <span class="dash-mod__desc">Acessórios e discos.</span>
+                    <span class="dash-mod__arrow">→</span>
+                </a>
+            </div>
+            <a class="dash-mod dash-mod--wide dash-mod--d" href="{% url 'pintura_epox' %}">
+                <span class="dash-mod__icon">E</span>
+                <div>
+                    <span class="dash-mod__name">Pintura Epox</span>
+                    <span class="dash-mod__desc" style="margin-top:4px;display:block;">Controle de pintura epóxi.</span>
+                </div>
+                <span class="dash-mod__arrow">Abrir →</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="card dash-charts-block dash-loss-section" aria-labelledby="dash-pie-heading">
+        <h2 id="dash-pie-heading" class="ind-section-label">
+            <span class="ind-section-label__num">02</span>
+            <span class="ind-section-label__text">Produtividade x perdas · 3 turnos</span>
+        </h2>
+        <p class="dash-pie-help">Produção e perdas em <strong>unidades</strong>, somando todos os registos guardados no navegador. Passe o rato sobre o gráfico para percentagens; a tabela abaixo resume por turno.</p>
+        <div class="dash-pie-wrap">
+            <canvas id="homeProductLoss" aria-label="Produtividade e perdas por turno"></canvas>
+        </div>
+        <div id="homeProductLossDetail" class="dash-prod-detail" hidden></div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+    const root = document.documentElement;
+
+    function sliceBorderColor() {
+        if (typeof getComputedStyle === 'undefined') return '#0f0f16';
+        var v = getComputedStyle(root).getPropertyValue('--chart-slice-border').trim();
+        return v || '#0f0f16';
+    }
+
+    function tooltipTheme() {
+        var dark = root.getAttribute('data-theme') !== 'light';
+        return {
+            backgroundColor: dark ? 'rgba(18, 18, 22, 0.94)' : '#ffffff',
+            titleColor: dark ? '#93c5fd' : '#0066cc',
+            bodyColor: dark ? '#e8ecf4' : '#0c1222',
+            borderColor: dark ? 'rgba(59, 130, 246, 0.35)' : 'rgba(0, 102, 204, 0.25)',
+            borderWidth: 1,
+            cornerRadius: 10,
+            padding: 12
+        };
+    }
+
+    function normalizeTurno(value) {
+        const s = String(value || '').toLowerCase().trim();
+        if (['1', '1 turno', '1º turno', 'primeiro turno'].includes(s)) return '1';
+        if (['2', '2 turno', '2º turno', 'segundo turno'].includes(s)) return '2';
+        if (['3', '3 turno', '3º turno', 'terceiro turno'].includes(s)) return '3';
+        return '';
+    }
+
+    function loadRegistros() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('registros') || '[]');
+            return Array.isArray(raw) ? raw : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function totaisPorTurno(registros) {
+        const acc = { '1': 0, '2': 0, '3': 0 };
+        registros.forEach(function (r) {
+            if (!r || typeof r !== 'object') return;
+            const t = normalizeTurno(r.turno);
+            if (acc[t] === undefined) return;
+            const q = Number(String(r.quantidade != null ? r.quantidade : (r.qtd || 0)).replace(',', '.'));
+            acc[t] += Number.isFinite(q) ? q : 0;
+        });
+        return acc;
+    }
+
+    function updateKpis() {
+        const acc = totaisPorTurno(loadRegistros());
+        const sum = acc['1'] + acc['2'] + acc['3'];
+        const t1 = document.getElementById('indKpiT1');
+        const t2 = document.getElementById('indKpiT2');
+        const t3 = document.getElementById('indKpiT3');
+        const tot = document.getElementById('indKpiTotal');
+        if (t1) t1.textContent = nf.format(acc['1']);
+        if (t2) t2.textContent = nf.format(acc['2']);
+        if (t3) t3.textContent = nf.format(acc['3']);
+        if (tot) tot.textContent = nf.format(sum);
+    }
+
+    function parseDateKey(s) {
+        if (!s) return '';
+        const d = String(s).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+        const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (m) {
+            const dd = m[1].padStart(2, '0');
+            const mm = m[2].padStart(2, '0');
+            return m[3] + '-' + mm + '-' + dd;
+        }
+        return '';
+    }
+
+    function lastNDays(n) {
+        const out = [];
+        const today = new Date();
+        today.setHours(12, 0, 0, 0);
+        for (let i = n - 1; i >= 0; i--) {
+            const dt = new Date(today);
+            dt.setDate(dt.getDate() - i);
+            const y = dt.getFullYear();
+            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+            const dd = String(dt.getDate()).padStart(2, '0');
+            out.push(y + '-' + mm + '-' + dd);
+        }
+        return out;
+    }
+
+    function dailySeriesForTurn(registros, turnKey, dayKeys) {
+        const map = {};
+        dayKeys.forEach(function (k) { map[k] = 0; });
+        registros.forEach(function (r) {
+            if (!r || typeof r !== 'object') return;
+            const dk = parseDateKey(r.data || r.date || r.dia);
+            if (!dk || map[dk] === undefined) return;
+            const t = normalizeTurno(r.turno);
+            if (t !== turnKey) return;
+            const q = Number(String(r.quantidade != null ? r.quantidade : (r.qtd || 0)).replace(',', '.'));
+            map[dk] += Number.isFinite(q) ? q : 0;
+        });
+        return dayKeys.map(function (k) { return map[k]; });
+    }
+
+    function dailySeriesTotal(registros, dayKeys) {
+        const map = {};
+        dayKeys.forEach(function (k) { map[k] = 0; });
+        registros.forEach(function (r) {
+            if (!r || typeof r !== 'object') return;
+            const dk = parseDateKey(r.data || r.date || r.dia);
+            if (!dk || map[dk] === undefined) return;
+            const t = normalizeTurno(r.turno);
+            if (t !== '1' && t !== '2' && t !== '3') return;
+            const q = Number(String(r.quantidade != null ? r.quantidade : (r.qtd || 0)).replace(',', '.'));
+            map[dk] += Number.isFinite(q) ? q : 0;
+        });
+        return dayKeys.map(function (k) { return map[k]; });
+    }
+
+    function lineColorFromValueEl(id) {
+        const el = document.getElementById(id);
+        if (!el) return 'rgba(255, 255, 255, 0.9)';
+        const c = getComputedStyle(el).color;
+        return c && c !== 'rgba(0, 0, 0, 0)' ? c : 'rgba(255, 255, 255, 0.9)';
+    }
+
+    const kpiSparkCharts = { T1: null, T2: null, T3: null, Tot: null };
+
+    function destroyKpiSparkCharts() {
+        ['T1', 'T2', 'T3', 'Tot'].forEach(function (key) {
+            if (kpiSparkCharts[key] && typeof kpiSparkCharts[key].destroy === 'function') {
+                kpiSparkCharts[key].destroy();
+                kpiSparkCharts[key] = null;
+            }
+        });
+    }
+
+    function updateKpiSparklines() {
+        if (typeof Chart === 'undefined') return;
+        const registros = loadRegistros();
+        const dayKeys = lastNDays(14);
+        const labels = dayKeys.map(function (k) {
+            const p = k.split('-');
+            return p[2] + '/' + p[1];
+        });
+        destroyKpiSparkCharts();
+        const tt = tooltipTheme();
+        const pairs = [
+            { id: 'indKpiSparkT1', key: 'T1', turn: '1', valId: 'indKpiT1' },
+            { id: 'indKpiSparkT2', key: 'T2', turn: '2', valId: 'indKpiT2' },
+            { id: 'indKpiSparkT3', key: 'T3', turn: '3', valId: 'indKpiT3' },
+            { id: 'indKpiSparkTot', key: 'Tot', turn: null, valId: 'indKpiTotal' }
+        ];
+        pairs.forEach(function (p) {
+            const canvas = document.getElementById(p.id);
+            if (!canvas) return;
+            const data = p.turn ? dailySeriesForTurn(registros, p.turn, dayKeys) : dailySeriesTotal(registros, dayKeys);
+            const color = lineColorFromValueEl(p.valId);
+            kpiSparkCharts[p.key] = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 3,
+                        borderWidth: 2,
+                        spanGaps: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    interaction: { intersect: false, mode: 'index' },
+                    layout: { padding: { top: 2, right: 0, bottom: 2, left: 0 } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: Object.assign({}, tt, {
+                            callbacks: {
+                                title: function (items) {
+                                    const i = items && items[0] ? items[0].dataIndex : 0;
+                                    return dayKeys[i] || '';
+                                },
+                                label: function (ctx) {
+                                    return nf.format(ctx.parsed.y) + ' un.';
+                                }
+                            }
+                        })
+                    },
+                    scales: {
+                        x: { display: false, grid: { display: false } },
+                        y: { display: false, beginAtZero: true, grid: { display: false } }
+                    }
+                }
+            });
+        });
+    }
+
+    function computeProductLossByTurn(registros) {
+        const acc = {
+            '1': { prod: 0, loss: 0 },
+            '2': { prod: 0, loss: 0 },
+            '3': { prod: 0, loss: 0 }
+        };
+
+        registros.forEach(function (r) {
+            if (!r || typeof r !== 'object') return;
+            const t = normalizeTurno(r.turno);
+            if (!acc[t]) return;
+
+            const prod = Number(String(r.quantidade != null ? r.quantidade : (r.qtd || 0)).replace(',', '.'));
+            const loss = Number(String(r.perdas != null ? r.perdas : (r.perda || 0)).replace(',', '.'));
+
+            acc[t].prod += Number.isFinite(prod) ? prod : 0;
+            acc[t].loss += Number.isFinite(loss) ? loss : 0;
+        });
+
+        return acc;
+    }
+
+    function countRegistrosPorTurno(registros) {
+        const c = { '1': 0, '2': 0, '3': 0 };
+        registros.forEach(function (r) {
+            if (!r || typeof r !== 'object') return;
+            const t = normalizeTurno(r.turno);
+            if (c[t] === undefined) return;
+            c[t]++;
+        });
+        return c;
+    }
+
+    function renderProductLossDetail(acc) {
+        const el = document.getElementById('homeProductLossDetail');
+        if (!el) return;
+        const grand = ['1', '2', '3'].reduce(function (s, k) { return s + acc[k].prod + acc[k].loss; }, 0);
+        if (grand <= 0) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+        const counts = countRegistrosPorTurno(loadRegistros());
+        el.hidden = false;
+        const rows = ['1', '2', '3'].map(function (k) {
+            const p = acc[k].prod;
+            const l = acc[k].loss;
+            const tt = p + l;
+            const lossRate = p > 0 ? (l / p * 100) : (l > 0 ? 100 : 0);
+            const share = grand > 0 ? (tt / grand * 100) : 0;
+            return '<tr><td>' + k + 'º turno</td><td>' + nf.format(p) + '</td><td>' + nf.format(l) + '</td><td>' + lossRate.toFixed(1) + '%</td><td>' + share.toFixed(1) + '%</td><td>' + counts[k] + '</td></tr>';
+        }).join('');
+        const tp = acc['1'].prod + acc['2'].prod + acc['3'].prod;
+        const tl = acc['1'].loss + acc['2'].loss + acc['3'].loss;
+        const lr = tp > 0 ? (tl / tp * 100) : 0;
+        const totalRegs = counts['1'] + counts['2'] + counts['3'];
+        el.innerHTML =
+            '<table class="dash-prod-detail__table">' +
+            '<caption>Resumo por turno (unidades)</caption>' +
+            '<thead><tr>' +
+            '<th scope="col">Turno</th>' +
+            '<th scope="col">Produção</th>' +
+            '<th scope="col">Perdas</th>' +
+            '<th scope="col">Perdas ÷ prod.</th>' +
+            '<th scope="col">Volume no total</th>' +
+            '<th scope="col">Registos</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '<tfoot><tr>' +
+            '<td>Totais</td>' +
+            '<td>' + nf.format(tp) + '</td>' +
+            '<td>' + nf.format(tl) + '</td>' +
+            '<td>' + lr.toFixed(1) + '%</td>' +
+            '<td>100%</td>' +
+            '<td>' + totalRegs + '</td>' +
+            '</tr></tfoot>' +
+            '</table>' +
+            '<p class="dash-prod-detail__hint">Volume no total: parte de (produção + perdas) do turno em relação ao somatório geral. Registos: linhas com o turno indicado.</p>';
+    }
+
+    function buildProductLossChartConfig(acc) {
+        const labels = [
+            '1º • Produção',
+            '1º • Perdas',
+            '2º • Produção',
+            '2º • Perdas',
+            '3º • Produção',
+            '3º • Perdas'
+        ];
+
+        const data = [
+            acc['1'].prod, acc['1'].loss,
+            acc['2'].prod, acc['2'].loss,
+            acc['3'].prod, acc['3'].loss
+        ];
+
+        const hasAny = data.some(function (v) { return Number.isFinite(v) && v > 0; });
+
+        const colorsProd = {
+            '1': 'rgba(34, 197, 94, 0.72)',
+            '2': 'rgba(59, 130, 246, 0.72)',
+            '3': 'rgba(245, 158, 11, 0.72)'
+        };
+        const colorsLoss = {
+            '1': 'rgba(34, 197, 94, 0.28)',
+            '2': 'rgba(59, 130, 246, 0.28)',
+            '3': 'rgba(245, 158, 11, 0.28)'
+        };
+
+        const colors = [
+            colorsProd['1'], colorsLoss['1'],
+            colorsProd['2'], colorsLoss['2'],
+            colorsProd['3'], colorsLoss['3']
+        ];
+
+        const grandTotal = ['1', '2', '3'].reduce(function (s, k) { return s + acc[k].prod + acc[k].loss; }, 0);
+
+        const tickColor = getComputedStyle(root).getPropertyValue('--muted').trim() || '#8b95a8';
+        const tt = tooltipTheme();
+
+        if (!hasAny) {
+            return {
+                type: 'doughnut',
+                data: {
+                    labels: ['Sem dados'],
+                    datasets: [{
+                        data: [1],
+                        backgroundColor: ['rgba(148, 163, 184, 0.35)'],
+                        borderWidth: 2,
+                        borderColor: sliceBorderColor(),
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '58%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: tickColor, font: { family: "'Inter', sans-serif", size: 10 }, boxWidth: 10, padding: 10 }
+                        },
+                        tooltip: Object.assign({}, tt, {
+                            callbacks: {
+                                label: function () { return 'Importe registos em Produção (caçarolas).'; }
+                            }
+                        })
+                    }
+                }
+            };
+        }
+
+        const borderC = sliceBorderColor();
+        return {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: borderC,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '58%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        maxHeight: 200,
+                        labels: {
+                            color: tickColor,
+                            font: { family: "'Inter', sans-serif", size: 9 },
+                            boxWidth: 11,
+                            padding: 8,
+                            generateLabels: function (chart) {
+                                const ds = chart.data.datasets[0];
+                                const labs = chart.data.labels || [];
+                                return labs.map(function (label, i) {
+                                    const v = ds.data[i];
+                                    const pct = grandTotal > 0 && typeof v === 'number' ? (v / grandTotal * 100).toFixed(1) : '0';
+                                    const txt = typeof v === 'number' ? (label + ': ' + nf.format(v) + ' (' + pct + '%)') : label;
+                                    const fill = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
+                                    return {
+                                        text: txt,
+                                        fillStyle: fill,
+                                        strokeStyle: borderC,
+                                        lineWidth: 1,
+                                        hidden: false,
+                                        index: i,
+                                        datasetIndex: 0
+                                    };
+                                });
+                            }
+                        }
+                    },
+                    tooltip: Object.assign({}, tt, {
+                        callbacks: {
+                            title: function (items) {
+                                return items && items[0] ? String(items[0].label || '') : '';
+                            },
+                            label: function (ctx) {
+                                const v = Number(ctx.raw);
+                                if (!Number.isFinite(v)) return '';
+                                const lines = [];
+                                lines.push(nf.format(v) + ' unidades');
+                                if (grandTotal > 0) {
+                                    lines.push((v / grandTotal * 100).toFixed(1) + '% do total geral (prod. + perdas)');
+                                }
+                                const turnKey = String(Math.floor(ctx.dataIndex / 2) + 1);
+                                const turnVol = acc[turnKey].prod + acc[turnKey].loss;
+                                if (turnVol > 0) {
+                                    lines.push((v / turnVol * 100).toFixed(1) + '% do ' + turnKey + 'º turno (soma prod. + perdas do turno)');
+                                }
+                                const isLoss = ctx.dataIndex % 2 === 1;
+                                if (isLoss) {
+                                    if (acc[turnKey].prod > 0) {
+                                        lines.push('Perdas ÷ produção (turno): ' + (acc[turnKey].loss / acc[turnKey].prod * 100).toFixed(1) + '%');
+                                    } else if (acc[turnKey].loss > 0) {
+                                        lines.push('Sem produção registada no turno; só perdas.');
+                                    }
+                                } else {
+                                    if (acc[turnKey].prod > 0) {
+                                        lines.push('Produção representa ' + (v / acc[turnKey].prod * 100).toFixed(1) + '% da produção do ' + turnKey + 'º turno');
+                                    }
+                                }
+                                return lines;
+                            }
+                        }
+                    })
+                }
+            }
+        };
+    }
+
+    let productLossChart = null;
+    function renderProductLoss() {
+        const canvas = document.getElementById('homeProductLoss');
+        if (!canvas) return;
+
+        const registros = loadRegistros();
+        const acc = computeProductLossByTurn(registros);
+
+        if (productLossChart && typeof productLossChart.destroy === 'function') productLossChart.destroy();
+        productLossChart = new Chart(canvas.getContext('2d'), buildProductLossChartConfig(acc));
+        updateKpis();
+        updateKpiSparklines();
+        renderProductLossDetail(acc);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderProductLoss);
+    } else {
+        renderProductLoss();
+    }
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'registros') renderProductLoss();
+    });
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') renderProductLoss();
+    });
+    try {
+        new MutationObserver(function () {
+            renderProductLoss();
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    } catch (e) { /* ignore */ }
+})();
+</script>
+{% endblock %}

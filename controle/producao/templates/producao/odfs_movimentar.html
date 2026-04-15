@@ -1,0 +1,511 @@
+{% extends "producao/base.html" %}
+
+{% block title %}ODFs a movimentar • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Relações • MRP{% endblock %}
+{% block breadcrumb %}Módulos{% endblock %}
+{% block page_heading %}ODFs a movimentar{% endblock %}
+{% block page_heading_meta %}Conferência com coluna ODF do MRP (cabeçalho ou coluna G){% endblock %}
+
+{% block main_class %}main-shell main-shell--fluid{% endblock %}
+
+{% block extra_head %}
+{% include "producao/includes/relacoes_app_styles.html" %}
+<style>
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+    }
+    .odf-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 18px;
+    }
+    .odf-meta {
+        font-size: 0.86rem;
+        color: var(--muted);
+        margin: 0 0 12px;
+    }
+    .odf-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+    }
+    .odf-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-ui);
+        font-size: 0.88rem;
+    }
+    .odf-table th,
+    .odf-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    .odf-table th {
+        background: var(--surface-2);
+        color: var(--accent);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .odf-table tr:last-child td { border-bottom: none; }
+    .odf-badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(249, 115, 22, 0.2);
+        color: var(--accent-hot);
+    }
+    .odf-print-title { display: none; }
+    @media print {
+        @page { size: A4; margin: 12mm; }
+        .no-print { display: none !important; }
+        .sidebar, .app-topbar, .footer, .workspace-deco, .concept-banner { display: none !important; }
+        .workspace { padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+        .odf-print-root { background: #fff !important; color: #111 !important; }
+        .odf-print-title { display: block !important; font-size: 14pt; margin: 0 0 10px; font-weight: 700; }
+        .odf-table th { color: #222 !important; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .odf-table { font-size: 10pt; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="relacoes-app odf-print-root">
+    <div class="relacoes-main" style="max-width: 1100px; margin: 0 auto;">
+        <div class="odf-toolbar no-print">
+            <a class="btn" href="{% url 'relacoes' %}">← Voltar às relações</a>
+            <button type="button" class="btn btn-accent" onclick="window.print()">Imprimir (A4)</button>
+            <button type="button" class="btn" onclick="OdfProducao.imprimirProducao()">Produção (carcaças / discos)</button>
+            <button type="button" class="btn" onclick="OdfProducao.imprimirAlmox()">Almoxarifado (demais itens)</button>
+            <span class="muted no-print" style="font-size:0.8rem;max-width:380px;">A escolha da impressora é feita na janela do sistema ao imprimir (o site não lista impressoras). As folhas usam a mesma base de dados/estoque importada na tela de Necessidades de Carcaças.</span>
+        </div>
+
+        <h1 class="odf-print-title">ODFs a movimentar</h1>
+
+        <p class="odf-meta no-print">
+            São listados apenas itens com <strong>OK</strong> na relação cujo <strong>ODF</strong> consta no MRP (coluna com cabeçalho contendo «ODF», ou coluna <strong>G</strong> se não houver cabeçalho).
+            O último arquivo enviado fica salvo em <code style="font-size:0.78rem;">{{ mrp_saved_path }}</code> até o próximo upload.
+            Quantidade a movimentar: <strong>Parcial</strong> (se preenchida), senão <strong>Total</strong>.
+        </p>
+
+        {% if upload_saved_notice %}
+            <p class="odf-meta no-print" style="color: var(--accent-hot);"><strong>MRP salvo.</strong> A lista abaixo usa este arquivo.</p>
+        {% endif %}
+
+        {% if erro %}
+            <div class="error no-print">{{ erro }}</div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="relacoes-panel no-print" style="margin-bottom: 16px;">
+            {% csrf_token %}
+            <div class="field">
+                <label for="id_mrp">Arquivo MRP (.xls)</label>
+                <input id="id_mrp" type="file" name="mrp" accept=".xls,application/vnd.ms-excel" />
+            </div>
+            <button type="submit" class="btn btn-accent">Carregar MRP e atualizar</button>
+        </form>
+
+        {% if mrp_source %}
+            <p class="odf-meta no-print"><strong>Fonte MRP:</strong> {{ mrp_source }}</p>
+        {% elif not erro %}
+            <p class="odf-meta no-print">
+                Caminho padrão (se existir no servidor): <code style="font-size:0.8rem;">{{ default_mrp_path }}</code>
+            </p>
+        {% endif %}
+
+        <p class="odf-meta no-print">
+            ODFs distintos no MRP: <strong>{{ mrp_odf_count }}</strong> · Linhas a movimentar: <strong>{{ rows_count }}</strong>
+        </p>
+
+        {% if rows %}
+        <div class="odf-table-wrap">
+            <table class="odf-table" aria-label="ODFs a movimentar">
+                <thead>
+                    <tr>
+                        <th>Relação</th>
+                        <th>Produto</th>
+                        <th>ODF</th>
+                        <th>Qtd. a movimentar</th>
+                        <th>Obs.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.relacao_nome }}</td>
+                        <td>{{ row.produto_nome }}</td>
+                        <td>{{ row.odf }}</td>
+                        <td>
+                            {% if row.is_parcial %}
+                                <strong>{{ row.quantidade_mov|floatformat:2 }}</strong>
+                            {% else %}
+                                {{ row.quantidade_mov|floatformat:2 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.is_parcial %}
+                                <span class="odf-badge">Parcial</span>
+                                <span class="muted" style="font-size:0.8rem;"> (total relação: {{ row.quantidade_total|floatformat:2 }})</span>
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="muted no-print">Nenhuma linha para exibir. Verifique se há itens com OK e ODF presente no MRP, ou envie o arquivo correto.</p>
+            {% if odf_diag %}
+                <p class="odf-meta no-print" style="margin-top:8px;">{{ odf_diag }}</p>
+                {% if sample_rel_odfs %}
+                    <p class="odf-meta no-print" style="margin-top:4px;">Exemplos de ODF nas relações (OK): {% for s in sample_rel_odfs %}<code>{{ s }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                {% endif %}
+                {% if sample_mrp_odfs %}
+                    <p class="odf-meta no-print" style="margin-top:4px;">Exemplos de ODF no MRP: {% for s in sample_mrp_odfs %}<code>{{ s }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const ROWS = JSON.parse("{{ rows_for_needs_json|default:'[]'|escapejs }}");
+
+    const STORAGE_KEY_DADOS = "cmc_dados_carcacas_v1";
+    const STORAGE_KEY_ESTOQUE = "cmc_estoque_carcacas_v1";
+
+    function normalizeText(t) {
+        return String(t ?? "")
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+    }
+
+    function normalizeCode(t) {
+        return String(t ?? "").trim();
+    }
+
+    function normalizeCodeKey(t) {
+        const raw = normalizeCode(t);
+        if (!raw) return "";
+        const onlyDigits = raw.replace(/\D/g, "");
+        if (onlyDigits) {
+            const n = String(parseInt(onlyDigits, 10));
+            return n === "NaN" ? onlyDigits : n;
+        }
+        return raw.replace(/\s+/g, "").toUpperCase();
+    }
+
+    function toNumber(t) {
+        if (t === null || t === undefined) return 0;
+        const s = String(t).trim();
+        if (!s) return 0;
+        const hasComma = s.includes(",");
+        const hasDot = s.includes(".");
+        let normalized = s.replace(/\s/g, "");
+        if (hasComma && hasDot) {
+            normalized = normalized.replace(/\./g, "").replace(",", ".");
+        } else if (hasComma) {
+            normalized = normalized.replace(",", ".");
+        }
+        const n = Number(normalized);
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    function loadDados() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY_DADOS) || "[]";
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function loadEstoque() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY_ESTOQUE) || "{}";
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    // Mesma ideia da tela de Necessidades: identifica linhas ligadas a carcaça/disco/chapa
+    function isLinhaCarcacaOuDisco(row) {
+        const d1 = String(row["Codigo_Disco/chapa"] ?? "").trim();
+        const d2 = String(row["Codigo_Disco/chapa1"] ?? "").trim();
+        if (d1 || d2) return true;
+        const partes = [
+            row["Descrição_Acessório"],
+            row["Descrição_Produto"],
+            row["Descrição_Disco/chapa"],
+            row["Descrição_Disco/chapa1"],
+        ].map(x => String(x ?? ""));
+        const blob = normalizeText(partes.join(" "))
+            .replace(/\u00e7/g, "c")
+            .replace(/\u00c7/g, "c");
+        const keys = ["carca", "disco", "chapa", "bandej", "anel", "aro"];
+        return keys.some(k => blob.includes(k));
+    }
+
+    function escHtml(s) {
+        return String(s ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    function buildPrintHtml(title, rows, needsCols) {
+        const cols = needsCols;
+        const thead = "<tr>" + cols.map(c => "<th>" + escHtml(c) + "</th>").join("") + "</tr>";
+        const tbody = rows.map(r => {
+            const tds = cols.map(c => {
+                const v = r[c];
+                const t = (v === null || v === undefined || v === "") ? "" : String(v);
+                return "<td>" + escHtml(t) + "</td>";
+            }).join("");
+            return "<tr>" + tds + "</tr>";
+        }).join("");
+        const t = escHtml(title);
+        const when = escHtml(new Date().toLocaleString("pt-BR"));
+        const n = rows.length;
+        const emptyMsg = n === 0
+            ? "<p><em>Nenhuma linha com saldo negativo para estas ODFs.</em></p>"
+            : "";
+        const tableBlock = n ? "<table><thead>" + thead + "</thead><tbody>" + tbody + "</tbody></table>" : "";
+        return "<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>" + t + "</title>\n" +
+            "<style>\n" +
+            "  @page { size: A4; margin: 12mm; }\n" +
+            "  body { font-family: system-ui, 'Segoe UI', sans-serif; font-size: 10pt; color: #111; margin: 0; padding: 16px; }\n" +
+            "  h1 { font-size: 14pt; margin: 0 0 10px; }\n" +
+            "  .meta { color: #444; font-size: 9pt; margin-bottom: 16px; }\n" +
+            "  table { border-collapse: collapse; width: 100%; }\n" +
+            "  th, td { border: 1px solid #bbb; padding: 5px 7px; text-align: left; vertical-align: top; }\n" +
+            "  th { background: #eee; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.04em; }\n" +
+            "</style></head><body>\n" +
+            "<h1>" + t + "</h1>\n" +
+            "<div class=\"meta\">Emitido em " + when + " · " + n + " linha(s)</div>\n" +
+            emptyMsg + "\n" +
+            tableBlock + "\n" +
+            "</body></html>";
+    }
+
+    const OdfProducao = {
+        _calcularNeeds() {
+            if (!ROWS || !ROWS.length) {
+                return { needs: [], qtdPorProduto: {} };
+            }
+            const dados = loadDados();
+            const estoqueMap = loadEstoque();
+            if (!dados.length) {
+                return { needs: [], qtdPorProduto: {}, semDados: true, estoqueMap };
+            }
+
+            // 1) Quantidade por código de produto nas ODFs a movimentar
+            const qtdPorProduto = {};
+            ROWS.forEach(r => {
+                const cod = normalizeCodeKey(r.codigo_produto);
+                if (!cod || cod === "NaN") return;
+                const q = toNumber(r.quantidade_mov);
+                if (q <= 0) return;
+                qtdPorProduto[cod] = (qtdPorProduto[cod] || 0) + q;
+            });
+
+            if (!Object.keys(qtdPorProduto).length) {
+                return { needs: [], qtdPorProduto, semCodigos: true, estoqueMap };
+            }
+
+            const DATA_COLS = [
+                "Cod_Interno",
+                "Descrição_Produto",
+                "Cód.Acessório",
+                "Descrição_Acessório",
+                "Fator",
+                "Codigo_Disco/chapa",
+                "Descrição_Disco/chapa",
+                "Codigo_Disco/chapa1",
+                "Descrição_Disco/chapa1",
+            ];
+
+            // 2) Junta com dados por Cod_Interno
+            const candidatos = [];
+            const semMatch = [];
+            Object.keys(qtdPorProduto).forEach(cod => {
+                const qtd = qtdPorProduto[cod];
+                let found = false;
+                dados.forEach(d => {
+                    if (normalizeCodeKey(d["Cod_Interno"]) !== cod) return;
+                    found = true;
+                    candidatos.push(Object.assign({}, d, { Quantidade: qtd }));
+                });
+                if (!found) semMatch.push(cod);
+            });
+
+            if (!candidatos.length) {
+                return { needs: [], qtdPorProduto, semMatch, estoqueMap };
+            }
+
+            // 3) Agrega duplicados pela base, somando Quantidade
+            const group = new Map();
+            candidatos.forEach(r => {
+                const key = DATA_COLS.map(k => String(r[k] ?? "")).join("|");
+                if (!group.has(key)) {
+                    const copy = Object.assign({}, r);
+                    copy.Quantidade = 0;
+                    group.set(key, copy);
+                }
+                const obj = group.get(key);
+                obj.Quantidade = obj.Quantidade + toNumber(r.Quantidade);
+            });
+
+            const needs = Array.from(group.values());
+
+            // 4) Cruza com estoque e calcula saldo
+            needs.forEach(r => {
+                const codAcessorio = normalizeCodeKey(r["Cód.Acessório"]);
+                const estoque = Number(estoqueMap[codAcessorio] || 0);
+                const fator = toNumber(r["Fator"] || 0);
+                const qtdProdutos = toNumber(r["Quantidade"] || 0);
+                const necessidade = fator > 0 ? (qtdProdutos * fator) : qtdProdutos;
+                r["Quantidade"] = necessidade;
+                r["Estoque"] = estoque;
+                r["Saldo"] = estoque - necessidade;
+            });
+
+            return { needs, qtdPorProduto, semMatch, estoqueMap };
+        },
+
+        imprimirProducao() {
+            if (!ROWS || !ROWS.length) {
+                alert("Não há ODFs a movimentar para analisar. Gere a lista primeiro.");
+                return;
+            }
+            const estoqueMap = loadEstoque();
+            const temEstoque = Object.keys(estoqueMap || {}).length > 0;
+            const res = this._calcularNeeds();
+
+            if (res.semDados) {
+                alert("Nenhuma base de carcaças/dados encontrada. Importe o Excel na tela de Necessidades de Carcaças.");
+                return;
+            }
+            if (!temEstoque) {
+                if (!confirm("Nenhum estoque importado encontrado. Deseja continuar mesmo assim?")) {
+                    return;
+                }
+            }
+
+            // 5) Filtra apenas saldo negativo e ligado a carcaça/disco
+            const NEG_COLS = [
+                "Cod_Interno",
+                "Descrição_Produto",
+                "Cód.Acessório",
+                "Descrição_Acessório",
+                "Codigo_Disco/chapa",
+                "Descrição_Disco/chapa",
+                "Codigo_Disco/chapa1",
+                "Descrição_Disco/chapa1",
+                "Quantidade",
+                "Estoque",
+                "Saldo",
+            ];
+
+            const rowsProducao = (res.needs || []).filter(r => {
+                if (toNumber(r["Saldo"] || 0) >= 0) return false;
+                return isLinhaCarcacaOuDisco(r);
+            });
+
+            const w = window.open("", "_blank");
+            if (!w) {
+                alert("Permita janelas pop-up para abrir a impressão.");
+                return;
+            }
+            w.document.write(buildPrintHtml("Necessidades — Produção (carcaças / discos) para ODFs a movimentar", rowsProducao, NEG_COLS));
+            w.document.close();
+            setTimeout(function () {
+                try {
+                    w.focus();
+                    w.print();
+                } catch (e) {}
+            }, 200);
+        },
+
+        imprimirAlmox() {
+            if (!ROWS || !ROWS.length) {
+                alert("Não há ODFs a movimentar para analisar. Gere a lista primeiro.");
+                return;
+            }
+            const estoqueMap = loadEstoque();
+            const temEstoque = Object.keys(estoqueMap || {}).length > 0;
+            const res = this._calcularNeeds();
+
+            if (res.semDados) {
+                alert("Nenhuma base de carcaças/dados encontrada. Importe o Excel na tela de Necessidades de Carcaças.");
+                return;
+            }
+            if (!temEstoque) {
+                if (!confirm("Nenhum estoque importado encontrado. Deseja continuar mesmo assim?")) {
+                    return;
+                }
+            }
+
+            const NEG_COLS = [
+                "Cod_Interno",
+                "Descrição_Produto",
+                "Cód.Acessório",
+                "Descrição_Acessório",
+                "Codigo_Disco/chapa",
+                "Descrição_Disco/chapa",
+                "Codigo_Disco/chapa1",
+                "Descrição_Disco/chapa1",
+                "Quantidade",
+                "Estoque",
+                "Saldo",
+            ];
+
+            const rowsAlmox = (res.needs || []).filter(r => {
+                if (toNumber(r["Saldo"] || 0) >= 0) return false;
+                return !isLinhaCarcacaOuDisco(r);
+            });
+
+            const w = window.open("", "_blank");
+            if (!w) {
+                alert("Permita janelas pop-up para abrir a impressão.");
+                return;
+            }
+            w.document.write(buildPrintHtml("Necessidades — Almoxarifado para ODFs a movimentar", rowsAlmox, NEG_COLS));
+            w.document.close();
+            setTimeout(function () {
+                try {
+                    w.focus();
+                    w.print();
+                } catch (e) {}
+            }, 200);
+        },
+    };
+
+    window.OdfProducao = OdfProducao;
+})();
+</script>
+{% endblock %}

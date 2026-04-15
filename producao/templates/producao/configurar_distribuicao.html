@@ -1,0 +1,17 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Configurar distribuição • CONTROLE MR. COOK{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2 style="margin:0 0 6px;">Configurar categorias dos produtos</h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 12px 0;">
+            <a class="btn" href="{% url 'distribuir_operacao' %}">Voltar</a>
+        </div>
+
+        <div class="muted">
+            (Próximo passo) Aqui vai entrar: adicionar categoria, lista de categorias com contagem e a associação produto ↔ categorias.
+        </div>
+    </div>
+{% endblock %}
+

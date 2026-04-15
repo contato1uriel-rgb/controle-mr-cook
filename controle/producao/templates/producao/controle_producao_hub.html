@@ -1,0 +1,89 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Controle de Produção • CONTROLE MR. COOK{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Produção com destaque laranja */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+        --accent-light: #fbbf24;
+    }
+
+    .cp-hub-wrap { display:grid; gap:18px; }
+    .cp-hub-card {
+        max-width: 760px;
+        margin: 0 auto;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 22px;
+    }
+    .cp-hub-title {
+        margin:0 0 8px;
+        letter-spacing:.04em;
+        font-weight:900;
+    }
+    .cp-hub-sub {
+        margin:0 0 16px;
+        color: var(--muted);
+    }
+    .cp-hub-canvas {
+        margin-top: 10px;
+        border:1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel2);
+        padding: 10px;
+    }
+    .cp-hub-actions { margin-top: 16px; display:flex; gap:10px; flex-wrap:wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cp-hub-wrap">
+    <section class="cp-hub-card">
+        <h2 class="cp-hub-title">CONTROLE DE PRODUCÃO - CAÇAROLAS</h2>
+        <p class="cp-hub-sub">Acompanhe a produção por turno e acesse o painel completo.</p>
+
+        <div class="cp-hub-canvas">
+            <canvas id="graficoTurnos" height="120"></canvas>
+        </div>
+
+        <div class="cp-hub-actions">
+            <a class="btn btn-accent" href="{% url 'controle_producao_cacarolas' %}">Abrir Controle de Produção - Caçarolas</a>
+        </div>
+    </section>
+</div>
+
+<script>
+new Chart(document.getElementById('graficoTurnos'), {
+    type: 'bar',
+    data: {
+        labels: ['1° Turno', '2° Turno', '3° Turno'],
+        datasets: [{
+            label: 'Produção',
+            data: [120, 95, 70],
+            backgroundColor: ['#fb923c', '#f97316', '#ea580c'],
+            borderRadius: 8
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' }, beginAtZero: true }
+        }
+    }
+});
+</script>
+{% endblock %}

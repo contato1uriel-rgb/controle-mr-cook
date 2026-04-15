@@ -1,0 +1,38 @@
+{% extends "producao/base.html" %}
+
+{% block title %}CONTROLE MEGA{% endblock %}
+{% block subtitle %}Mega • Ordem de serviço{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}MEGA{% endblock %}
+{% block page_heading_meta %}Ordens de serviço e listas{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Destaque azul no módulo MEGA */
+    .mega-scope {
+        --accent: #3b82f6;
+        --accent-dim: rgba(59, 130, 246, 0.15);
+        --border-bright: rgba(59, 130, 246, 0.35);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="grid mega-scope">
+    <section class="card">
+        <h2 style="margin: 0 0 8px; letter-spacing: 0.06em;">CONTROLE MEGA</h2>
+
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin: 14px 0 4px;">
+            <a class="btn btn-accent" href="{% url 'ordem_servico_mega' %}">ORDEM DE SERVIÇO</a>
+            <a class="btn" href="{% url 'home' %}">Voltar ao Painel</a>
+        </div>
+    </section>
+
+    <aside class="card">
+        <h3 style="margin:0 0 6px;">Ordem de Serviço</h3>
+        <div class="muted" style="margin-bottom: 12px;">
+            Crie, preencha e salve ordens de serviço em layout organizado por cards.
+        </div>
+    </aside>
+</div>
+{% endblock %}

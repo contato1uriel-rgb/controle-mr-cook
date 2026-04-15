@@ -1,0 +1,1535 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Controle de Produção • Caçarolas{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+    /* Produção com destaque laranja (substitui detalhes azuis) */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+        --accent-light: #fbbf24;
+    }
+
+    .cp-shell { display: grid; gap: 22px; }
+
+    .cp-hero {
+        position: relative;
+        border: 3px double var(--border);
+        border-radius: var(--radius-card);
+        padding: 22px 24px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: end;
+        gap: 16px 20px;
+        background: var(--surface);
+        box-shadow: var(--shadow-card);
+    }
+    @media (max-width: 900px) {
+        .cp-hero { grid-template-columns: 1fr; align-items: start; }
+    }
+    .cp-hero-legend { justify-content: flex-end; }
+    @media (max-width: 900px) {
+        .cp-hero-legend { justify-content: flex-start; }
+    }
+    .cp-hero::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background: linear-gradient(180deg, var(--accent), var(--accent-light));
+        border-radius: 2px 0 0 2px;
+    }
+    .cp-title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        font-size: clamp(1.05rem, 2vw, 1.25rem);
+        color: var(--accent);
+    }
+    .cp-sub {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.88rem;
+        max-width: 42ch;
+        line-height: 1.5;
+        letter-spacing: 0.02em;
+    }
+    .cp-sub strong { color: inherit; }
+    .cp-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .cp-section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 12px;
+        font-family: var(--font-ui);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .cp-section-title::before {
+        content: "";
+        width: 20px;
+        height: 2px;
+        background: var(--accent);
+    }
+
+    .cp-panel { display: block; }
+    .cp-box {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 18px 20px;
+        background: var(--surface);
+        box-shadow: var(--shadow-card);
+    }
+    .cp-box--spaced { margin-top: 16px; }
+    .cp-box h3 {
+        font-family: var(--font-display);
+        font-size: 0.95rem;
+        font-weight: 400;
+        letter-spacing: 0.02em;
+        color: var(--accent);
+        margin: 0 0 4px;
+    }
+
+    .cp-grid { display: grid; gap: 12px; }
+    .cp-grid-2 { grid-template-columns: 1fr 1fr; }
+    .cp-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .cp-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .cp-kpi-dashboard {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.2fr) repeat(3, 1fr);
+        gap: 16px;
+        align-items: stretch;
+        margin-top: 16px;
+    }
+    .cp-kpi {
+        position: relative;
+        border-radius: var(--radius-btn);
+        padding: 16px 14px;
+        text-align: center;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        box-shadow: var(--shadow-card);
+    }
+    .cp-kpi--gauge {
+        border-top: 3px double var(--accent);
+        box-shadow: var(--shadow-card);
+    }
+    .cp-kpi--prod { border-top: 2px solid var(--turno-1); }
+    .cp-kpi--loss { border-top: 2px solid rgba(248, 113, 113, 0.7); }
+    .cp-kpi--disp { border-top: 2px solid var(--turno-2); }
+
+    .cp-kpi h4 {
+        margin: 0 0 10px;
+        font-family: var(--font-display);
+        font-size: 0.68rem;
+        color: var(--muted);
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+    }
+    .cp-kpi--compact div {
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+    }
+    .cp-kpi--gauge,
+    .cp-kpi--compact { padding: 14px 12px 12px; }
+    .cp-kpi-value {
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        margin-bottom: 8px;
+    }
+    .cp-kpi-chart-wrap {
+        height: 74px;
+        border-radius: 8px;
+        border: 1px solid var(--border-soft);
+        background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+        overflow: hidden;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .cp-kpi-chart-wrap canvas { width: 100%; height: 100%; display: block; }
+
+    .cp-label { font-size: 11px; display: block; margin-bottom: 4px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .cp-box input,
+    .cp-box select,
+    .cp-box textarea,
+    #config input,
+    #form input,
+    #form select,
+    #dados input {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        padding: 11px 14px;
+        font-family: var(--font-body);
+    }
+    .cp-box input:focus-visible,
+    .cp-box select:focus-visible,
+    .cp-box textarea:focus-visible,
+    #config input:focus-visible,
+    #form input:focus-visible,
+    #form select:focus-visible,
+    #dados input:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 0;
+        border-color: var(--accent-light);
+        box-shadow: 0 0 0 1px rgba(92, 61, 46, 0.08);
+    }
+
+    .cp-chart-wrap {
+        position: relative;
+        height: 268px;
+        margin-bottom: 16px;
+        border-radius: var(--radius-card);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--shadow-card);
+    }
+    .cp-chart-wrap::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--accent-light), transparent);
+        opacity: 0.35;
+        z-index: 1;
+        pointer-events: none;
+    }
+    .cp-chart-wrap:last-child { margin-bottom: 0; }
+    .cp-chart-wrap canvas { display: block; }
+
+    .cp-turno-charts-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        align-items: stretch;
+    }
+    @media (max-width: 1100px) {
+        .cp-turno-charts-row { grid-template-columns: 1fr; }
+    }
+    .cp-turno-chart-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 14px 12px 16px;
+        background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .cp-turno-chart-card__title {
+        margin: 0 0 12px;
+        font-family: var(--font-display);
+        font-size: 0.82rem;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-align: center;
+        color: var(--accent);
+    }
+    .cp-turno-chart-card__inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        justify-content: center;
+        gap: 12px 14px;
+    }
+    .cp-chart-wrap--pie {
+        flex: 1 1 160px;
+        max-width: min(100%, 240px);
+        width: 100%;
+        height: 220px;
+        margin-bottom: 0;
+        border: 1px solid var(--border-soft);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+    .cp-turno-chart-card__stats {
+        flex: 1 1 140px;
+        min-width: 130px;
+        max-width: 100%;
+        align-self: center;
+        font-family: var(--font-ui);
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--text);
+    }
+    .cp-turno-chart-card__stats dl {
+        margin: 0;
+        display: grid;
+        gap: 6px 10px;
+    }
+    .cp-turno-chart-card__stats dt {
+        margin: 0;
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    .cp-turno-chart-card__stats dd {
+        margin: 0 0 8px;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.95rem;
+        color: var(--text);
+    }
+    .cp-turno-chart-card__stats dd:last-of-type { margin-bottom: 0; }
+    .cp-turno-chart-card__topdays {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+    }
+    .cp-turno-chart-card__topdays strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.65rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+    }
+    .cp-turno-chart-card__topdays ul {
+        margin: 0;
+        padding: 0 0 0 1em;
+        color: var(--muted);
+        font-size: 0.8rem;
+    }
+
+    .cp-list {
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+    }
+    .cp-list li {
+        font-family: var(--font-ui);
+        padding: 10px 14px;
+        border-radius: var(--radius-btn);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 0.9rem;
+        letter-spacing: 0.02em;
+        color: var(--text);
+        border-left: 3px solid var(--accent-light);
+    }
+
+    #config, #form, #dados { display: none; }
+
+    .cp-help { margin-top: 6px; color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+    .cp-table-wrap {
+        overflow-x: auto;
+        margin-top: 12px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-card);
+        background: var(--surface);
+        max-height: 46vh;
+        overflow-y: auto;
+    }
+    .cp-table-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1290;
+        background: #0b0b0b;
+    }
+    .cp-table-overlay.is-visible { display: block; }
+    body.cacarolas-fullscreen-lock .sidebar,
+    body.cacarolas-fullscreen-lock .app-topbar,
+    body.cacarolas-fullscreen-lock .footer,
+    body.cacarolas-fullscreen-lock .workspace-deco {
+        display: none !important;
+    }
+    body.cacarolas-fullscreen-lock .workspace {
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    .cp-table-wrap--fullscreen {
+        position: fixed !important;
+        inset: 8px !important;
+        z-index: 1500 !important;
+        margin: 0 !important;
+        max-height: calc(100vh - 16px) !important;
+        width: calc(100vw - 16px);
+        border-radius: 10px;
+        border: 1px solid #2a2a2a;
+        background: #1a1714;
+        box-shadow: none;
+    }
+    .cp-table-wrap--fullscreen .cp-table-fullscreen-topbar {
+        display: flex;
+    }
+    .cp-table-fullscreen-topbar {
+        display: none;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        background: #1a1714;
+        border-bottom: 1px solid #2a2a2a;
+    }
+    body.cacarolas-fullscreen-lock { overflow: hidden; }
+    .cp-table { width: 100%; border-collapse: collapse; }
+    .cp-table th, .cp-table td {
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--border-soft);
+        text-align: left;
+        font-size: 0.86rem;
+        white-space: nowrap;
+    }
+    .cp-table-wrap--fullscreen .cp-table tbody tr:nth-child(odd) td {
+        background: #0f0f0f;
+    }
+    .cp-table-wrap--fullscreen .cp-table tbody tr:nth-child(even) td {
+        background: #2f2f2f;
+    }
+    .cp-table-wrap--fullscreen .cp-table tbody tr:hover td {
+        background: #3a3a3a;
+    }
+    .cp-table th {
+        font-family: var(--font-ui);
+        color: var(--accent);
+        font-weight: 700;
+        background: var(--surface-2);
+        position: sticky;
+        top: 0;
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+    }
+    .cp-empty { color: var(--muted); padding: 10px 0 0; }
+    .cp-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+    .cp-dados-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .cp-expand-btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+    .cp-toolbar__grow { margin-left: auto; }
+    .cp-readonly {
+        background: var(--surface-2);
+        font-family: var(--font-display);
+        font-weight: 400;
+        border-color: var(--border);
+        color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+        .cp-kpi-dashboard { grid-template-columns: 1fr 1fr; }
+        .cp-kpi--gauge { grid-column: 1 / -1; }
+    }
+    @media (max-width: 1020px) {
+        .cp-grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .cp-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 680px) {
+        .cp-grid-4, .cp-grid-3, .cp-grid-2, .cp-kpi-dashboard { grid-template-columns: 1fr; }
+        .cp-hero { padding: 18px; grid-template-columns: 1fr; }
+        .cp-table-wrap { max-height: 56vh; }
+        .cp-table-wrap--fullscreen {
+            inset: 0 !important;
+            width: 100vw;
+            max-height: 100vh !important;
+            border-radius: 0;
+        }
+        .cp-toolbar__grow { margin-left: 0; }
+    }
+
+    html[data-theme="dark"] .cp-hero,
+    html[data-theme="dark"] .cp-box,
+    html[data-theme="dark"] .cp-kpi {
+        background: var(--surface);
+    }
+    html[data-theme="dark"] .cp-chart-wrap {
+        background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), var(--shadow-card);
+    }
+    html[data-theme="light"] .cp-box input,
+    html[data-theme="light"] #form input,
+    html[data-theme="light"] #dados input {
+        background: var(--surface-2);
+    }
+    html[data-theme="light"] .cp-sub { color: #2f2720; }
+    html[data-theme="light"] .cp-table-wrap--fullscreen {
+        background: #fffaf4;
+        border-color: rgba(92, 61, 46, 0.2);
+    }
+    html[data-theme="light"] .cp-table-wrap--fullscreen .cp-table-fullscreen-topbar {
+        background: #fff7ef;
+        border-bottom-color: rgba(92, 61, 46, 0.22);
+        color: #2a2319;
+    }
+    html[data-theme="light"] .cp-table-wrap--fullscreen .cp-table th {
+        background: #f7efe5;
+        color: #5c3d2e;
+    }
+    html[data-theme="light"] .cp-table-wrap--fullscreen .cp-table tbody tr:nth-child(odd) td {
+        background: #fffaf4;
+        color: #2a2319;
+    }
+    html[data-theme="light"] .cp-table-wrap--fullscreen .cp-table tbody tr:nth-child(even) td {
+        background: #f2e8dc;
+        color: #2a2319;
+    }
+    html[data-theme="light"] .cp-table-wrap--fullscreen .cp-table tbody tr:hover td {
+        background: #eadccb;
+        color: #1f1912;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cp-shell">
+    <div class="cp-hero">
+        <div>
+            <h2 class="cp-title">CONTROLE DE PRODUÇÃO · CAÇAROLAS</h2>
+            <p class="cp-sub">OEE, gráficos e ranking no período filtrado. Turnos: <strong>1º</strong> · <strong>2º</strong> · <strong>3º</strong>.</p>
+            <div class="cp-actions" style="margin-top:14px;">
+                <button type="button" class="btn btn-accent" onclick="App.abrirForm()">Adicionar Registro</button>
+                <button type="button" class="btn" onclick="App.abrirDados()">Dados</button>
+                <button type="button" class="btn" onclick="App.abrirConfig()">Configurações</button>
+            </div>
+        </div>
+        <div class="turno-legend cp-hero-legend" aria-label="Legenda dos turnos">
+            <span class="turno-chip turno-chip--1"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">1º</span><span class="turno-chip__hex">#55d400</span></span>
+            <span class="turno-chip turno-chip--2"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">2º</span><span class="turno-chip__hex">#0055d4</span></span>
+            <span class="turno-chip turno-chip--3"><span class="turno-chip__swatch" aria-hidden="true"></span><span class="turno-chip__txt">3º</span><span class="turno-chip__hex">#ffcc00</span></span>
+        </div>
+    </div>
+
+    <div id="painel" class="cp-panel">
+        <div class="cp-grid cp-grid-2">
+            <div class="cp-box">
+                <h3 style="margin:0;">OEE por Maquina</h3>
+                <ul class="cp-list" id="oeeMaquina"></ul>
+            </div>
+            <div class="cp-box">
+                <h3 style="margin:0;">Ranking Producao</h3>
+                <ul class="cp-list" id="rankingMaquinas"></ul>
+            </div>
+        </div>
+
+        <div class="cp-kpi-dashboard">
+            <div class="cp-kpi cp-kpi--gauge">
+                <h4>OEE Geral</h4>
+                <div class="cp-kpi-value" id="kpiOEE">0%</div>
+                <div class="cp-kpi-chart-wrap">
+                    <canvas id="kpiChartOEE"></canvas>
+                </div>
+            </div>
+            <div class="cp-kpi cp-kpi--compact cp-kpi--prod">
+                <h4>Producao</h4>
+                <div class="cp-kpi-value" id="kpiProd">0</div>
+                <div class="cp-kpi-chart-wrap"><canvas id="kpiChartProd"></canvas></div>
+            </div>
+            <div class="cp-kpi cp-kpi--compact cp-kpi--loss">
+                <h4>Perdas</h4>
+                <div class="cp-kpi-value" id="kpiPerda">0</div>
+                <div class="cp-kpi-chart-wrap"><canvas id="kpiChartPerda"></canvas></div>
+            </div>
+            <div class="cp-kpi cp-kpi--compact cp-kpi--disp">
+                <h4>Disponibilidade</h4>
+                <div class="cp-kpi-value" id="kpiDisp">0%</div>
+                <div class="cp-kpi-chart-wrap"><canvas id="kpiChartDisp"></canvas></div>
+            </div>
+        </div>
+
+        <div class="cp-box cp-box--spaced cp-grid cp-grid-3">
+            <div class="cp-section-title" style="grid-column:1/-1;margin-bottom:4px;">Filtro do periodo</div>
+            <div>
+                <label class="cp-label">Data Inicial</label>
+                <input type="date" id="dataInicial">
+            </div>
+            <div>
+                <label class="cp-label">Data Final</label>
+                <input type="date" id="dataFinal">
+            </div>
+            <div style="display:flex; align-items:end;">
+                <button type="button" class="btn btn-accent" onclick="App.filtrar()">Filtrar</button>
+            </div>
+        </div>
+
+        <div class="cp-box cp-box--spaced">
+            <div class="cp-section-title">Graficos por turno</div>
+            <p class="cp-help" style="margin:0 0 14px;">Participação de Produção x Perdas por turno no período filtrado.</p>
+            <div class="cp-turno-charts-row">
+                <div class="cp-turno-chart-card">
+                    <div class="cp-turno-chart-card__title" style="color:var(--turno-1);">1º turno</div>
+                    <div class="cp-turno-chart-card__inner">
+                        <div class="cp-chart-wrap cp-chart-wrap--pie"><canvas id="chart1"></canvas></div>
+                        <div class="cp-turno-chart-card__stats" id="chart1Info"></div>
+                    </div>
+                </div>
+                <div class="cp-turno-chart-card">
+                    <div class="cp-turno-chart-card__title" style="color:var(--turno-2);">2º turno</div>
+                    <div class="cp-turno-chart-card__inner">
+                        <div class="cp-chart-wrap cp-chart-wrap--pie"><canvas id="chart2"></canvas></div>
+                        <div class="cp-turno-chart-card__stats" id="chart2Info"></div>
+                    </div>
+                </div>
+                <div class="cp-turno-chart-card">
+                    <div class="cp-turno-chart-card__title" style="color:var(--turno-3);">3º turno</div>
+                    <div class="cp-turno-chart-card__inner">
+                        <div class="cp-chart-wrap cp-chart-wrap--pie"><canvas id="chart3"></canvas></div>
+                        <div class="cp-turno-chart-card__stats" id="chart3Info"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="dados" class="cp-box">
+        <div class="cp-dados-header">
+            <h3 style="margin:0;">Dados da Producao</h3>
+        </div>
+        <div class="cp-toolbar">
+            <div>
+                <label class="cp-label">Data Inicial</label>
+                <input type="date" id="dadosDataInicial">
+            </div>
+            <div>
+                <label class="cp-label">Data Final</label>
+                <input type="date" id="dadosDataFinal">
+            </div>
+            <div>
+                <button type="button" class="btn btn-accent" onclick="App.filtrarDados()">Filtrar Tabela</button>
+            </div>
+            <div>
+                <button type="button" class="btn" onclick="App.limparFiltroDados()">Limpar Filtro</button>
+            </div>
+            <div>
+                <button type="button" class="btn" onclick="App.baixarExcel()">Baixar Excel</button>
+            </div>
+            <div>
+                <button type="button" class="btn cp-expand-btn js-btn-expandir-dados" id="btnExpandirDados" onclick="App.toggleTabelaExpandida()">Expandir tabela</button>
+            </div>
+        </div>
+        <div class="cp-table-overlay" id="dadosTableOverlay" onclick="App.toggleTabelaExpandida(false)"></div>
+        <div class="cp-table-wrap" id="dadosTableWrap">
+            <div class="cp-table-fullscreen-topbar">
+                <span class="cp-help" style="margin:0;">Visualização expandida</span>
+                <button type="button" class="btn btn-accent" onclick="App.toggleTabelaExpandida(false)">Voltar</button>
+            </div>
+            <table class="cp-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Turno</th>
+                        <th>Maquina</th>
+                        <th>Responsavel</th>
+                        <th>Produto</th>
+                        <th>ODF</th>
+                        <th>Quantidade</th>
+                        <th>Hora Maquina</th>
+                        <th>Peças/Hora</th>
+                        <th>Paradas (min)</th>
+                        <th>Perdas</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="dadosTabelaBody"></tbody>
+            </table>
+        </div>
+        <div id="dadosVazio" class="cp-empty" style="display:none;">Nenhum registro encontrado para o filtro informado.</div>
+    </div>
+
+    <div id="config" class="cp-box">
+        <h3 style="margin-top:0;">Configurações</h3>
+        <div class="cp-grid cp-grid-2">
+            <div>
+                <label class="cp-label">Nova Maquina</label>
+                <input id="novaMaquina" placeholder="Nome da maquina">
+            </div>
+            <div style="display:flex; align-items:end;">
+                <button type="button" class="btn btn-accent" onclick="App.addMaquina()">Adicionar Maquina</button>
+            </div>
+        </div>
+
+        <ul class="cp-list" id="listaMaquinas"></ul>
+
+        <label class="cp-label">Importar Produtos (Excel: coluna A = produto, coluna B = ciclo ideal)</label>
+        <input type="file" onchange="App.importarExcel(event)">
+
+        <ul class="cp-list" id="listaProdutos"></ul>
+    </div>
+
+    <div id="form" class="cp-box">
+        <h3 style="margin-top:0;">Registro</h3>
+
+        <div class="cp-grid cp-grid-4">
+            <div>
+                <label class="cp-label">Data</label>
+                <input type="date" id="data">
+            </div>
+            <div>
+                <label class="cp-label">Maquina</label>
+                <select id="maquina"></select>
+            </div>
+            <div>
+                <label class="cp-label">Turno</label>
+                <select id="turno">
+                    <option value="1">1 turno</option>
+                    <option value="2">2 turno</option>
+                    <option value="3">3 turno</option>
+                </select>
+            </div>
+            <div>
+                <label class="cp-label">Responsavel</label>
+                <input id="responsavel">
+            </div>
+        </div>
+
+        <div class="cp-grid cp-grid-3" style="margin-top:10px;">
+            <div>
+                <label class="cp-label">Produto</label>
+                <input list="produtosDatalist" id="produto">
+                <datalist id="produtosDatalist"></datalist>
+            </div>
+            <div>
+                <label class="cp-label">Ciclo Ideal (seg/peca)</label>
+                <input id="cicloIdeal" type="number">
+            </div>
+            <div>
+                <label class="cp-label">Quantidade Produzida</label>
+                <input id="quantidade" type="number">
+            </div>
+        </div>
+
+        <div class="cp-grid cp-grid-4" style="margin-top:10px;">
+            <div>
+                <label class="cp-label">ODF</label>
+                <input id="odf">
+            </div>
+            <div>
+                <label class="cp-label">Hora Inicial</label>
+                <input type="time" id="inicio">
+            </div>
+            <div>
+                <label class="cp-label">Hora Final</label>
+                <input type="time" id="fim">
+            </div>
+            <div>
+                <label class="cp-label">Refeicao (min)</label>
+                <input type="number" id="refeicao">
+            </div>
+        </div>
+
+        <div class="cp-grid cp-grid-3" style="margin-top:10px;">
+            <div>
+                <label class="cp-label">Paradas da Maquina (min)</label>
+                <input id="paradas" type="number">
+                <div class="cp-help">Informe a soma das paradas ocorridas no registro, em minutos. Ex.: ajuste, manutencao, espera, falta de material.</div>
+            </div>
+            <div>
+                <label class="cp-label">Hora Maquina (automatico)</label>
+                <input id="horaMaquina" class="cp-readonly" readonly>
+                <div class="cp-help">Calculado automaticamente com base em Hora Inicial, Hora Final, Refeicao e Paradas da Maquina.</div>
+            </div>
+            <div>
+                <label class="cp-label">Peças/Hora (automatico)</label>
+                <input id="pecasHora" class="cp-readonly" readonly>
+                <div class="cp-help">Calculado automaticamente com base em Quantidade Produzida e Hora Maquina.</div>
+            </div>
+        </div>
+
+        <h4 style="margin:14px 0 8px;">Perdas por Processo</h4>
+        <div class="cp-grid cp-grid-4">
+            <div><label class="cp-label">Material</label><input id="material" type="number"></div>
+            <div><label class="cp-label">Estampo</label><input id="estampo" type="number"></div>
+            <div><label class="cp-label">Polimento</label><input id="polimento" type="number"></div>
+            <div><label class="cp-label">Refilador</label><input id="refilador" type="number"></div>
+            <div><label class="cp-label">Rebite</label><input id="rebite" type="number"></div>
+            <div><label class="cp-label">Amassado</label><input id="amassado" type="number"></div>
+            <div><label class="cp-label">Pintura</label><input id="pintura" type="number"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+            <button type="button" class="btn btn-accent" onclick="App.salvar()">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/** Cores por turno: #55d400 · #0055d4 · #ffcc00 */
+const CP_CORES_TURNO = [
+    { backgroundColor: 'rgba(85, 212, 0, 0.88)', borderColor: 'rgba(120, 235, 70, 0.95)', hoverBackgroundColor: 'rgba(100, 228, 50, 0.95)' },
+    { backgroundColor: 'rgba(0, 85, 212, 0.88)', borderColor: 'rgba(80, 160, 255, 0.95)', hoverBackgroundColor: 'rgba(40, 130, 235, 0.95)' },
+    { backgroundColor: 'rgba(255, 204, 0, 0.88)', borderColor: 'rgba(255, 225, 100, 0.95)', hoverBackgroundColor: 'rgba(255, 215, 60, 0.95)' },
+];
+
+/** Fatias do grafico de pizza: variacao de matiz por turno */
+function cpSliceColors(turnIndex, n) {
+    const hues = [115, 220, 48];
+    const hue = hues[turnIndex % 3];
+    if (n <= 0) return [];
+    return Array.from({ length: n }, (_, i) => {
+        const t = n === 1 ? 0.5 : i / (n - 1);
+        const l = 36 + t * 26;
+        const s = 78 - (i % 4) * 5;
+        const a = 0.88 - (i % 6) * 0.07;
+        return `hsla(${hue}, ${s}%, ${l}%, ${Math.max(0.42, a)})`;
+    });
+}
+
+const App = {
+    state: {
+        registros: [],
+        maquinas: JSON.parse(localStorage.getItem("maquinas") || "[]"),
+        produtos: JSON.parse(localStorage.getItem("produtos") || "[]"),
+        dadosFiltrados: [],
+        editUid: null,
+        charts: {},
+        tabelaExpandida: false,
+    },
+
+    init() {
+        document.getElementById("painel").style.display = "block";
+        this.bindHoraMaquina();
+        this.bindProduto();
+        this.bindFiltroDashboard();
+        this.bindDadosExpandir();
+        this.state.registros = this.loadRegistros();
+        this.atualizarListas();
+        this.preencherMesVigente();
+        this.state.dadosFiltrados = [...this.state.registros];
+        this.aplicarDashboardMesVigente();
+        this.renderTabelaDados(this.state.registros);
+    },
+
+    bindFiltroDashboard() {
+        ["dataInicial", "dataFinal"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.cpDashBound) {
+                el.addEventListener("change", () => this.aplicarDashboardMesVigente());
+                el.dataset.cpDashBound = "1";
+            }
+        });
+    },
+
+    loadRegistros() {
+        const raw = JSON.parse(localStorage.getItem("registros") || "[]");
+        const lista = Array.isArray(raw) ? raw : [];
+        const normalizados = lista.map((r, i) => this.normalizeRegistro(r, i)).filter(r => r && r.data);
+        localStorage.setItem("registros", JSON.stringify(normalizados));
+        return normalizados;
+    },
+
+    saveRegistros() {
+        localStorage.setItem("registros", JSON.stringify(this.state.registros));
+    },
+
+    normalizeRegistro(r, index = 0) {
+        if (!r || typeof r !== 'object') return null;
+        const data = this.normalizeDate(r.data || r.date || r.dia || '');
+        const tempo = this.toNumber(r.tempo ?? r.horaMaquina ?? r.horasMaquina ?? r.horas ?? 0);
+        const paradasMin = this.toNumber(r.paradasMin ?? r.paradas ?? ((this.toNumber(r.parada ?? 0)) * 60) ?? 0);
+        const quantidade = this.toNumber(r.quantidade ?? r.producao ?? r.qtd ?? 0);
+        const perdas = this.toNumber(r.perdas ?? r.perda ?? 0);
+        const ciclo = this.toNumber(r.ciclo ?? r.cicloIdeal ?? 0);
+        const turno = this.normalizeTurno(r.turno ?? r.turnoLabel ?? r.periodo ?? '');
+        const uid = String(r.uid || r.id || `${data}-${turno}-${r.maquina || ''}-${index}`);
+        const pecasHora = tempo > 0 ? this.toNumber(r.pecasHora ?? (quantidade / tempo)) : 0;
+        return {
+            uid,
+            data,
+            turno,
+            maquina: String(r.maquina || r.machine || '').trim(),
+            responsavel: String(r.responsavel || r.operador || '').trim(),
+            produto: String(r.produto || '').trim(),
+            quantidade,
+            odf: String(r.odf || '').trim(),
+            inicio: String(r.inicio || '').trim(),
+            fim: String(r.fim || '').trim(),
+            refeicao: this.toNumber(r.refeicao || 0),
+            tempo,
+            pecasHora,
+            parada: paradasMin / 60,
+            paradasMin,
+            ciclo,
+            perdas,
+            material: this.toNumber(r.material || 0),
+            estampo: this.toNumber(r.estampo || 0),
+            polimento: this.toNumber(r.polimento || 0),
+            refilador: this.toNumber(r.refilador || 0),
+            rebite: this.toNumber(r.rebite || 0),
+            amassado: this.toNumber(r.amassado || 0),
+            pintura: this.toNumber(r.pintura || 0),
+        };
+    },
+
+    toNumber(value) {
+        const n = Number(String(value ?? '').replace(',', '.'));
+        return Number.isFinite(n) ? n : 0;
+    },
+
+    normalizeDate(value) {
+        const s = String(value || '').trim();
+        if (!s) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+        const d = new Date(s);
+        if (!Number.isNaN(d.getTime())) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        return '';
+    },
+
+    normalizeTurno(value) {
+        const s = String(value || '').toLowerCase().trim();
+        if (["1", "1 turno", "1º turno", "primeiro turno"].includes(s)) return "1";
+        if (["2", "2 turno", "2º turno", "segundo turno"].includes(s)) return "2";
+        if (["3", "3 turno", "3º turno", "terceiro turno"].includes(s)) return "3";
+        return String(value || '').trim() || "";
+    },
+
+    mesVigenteIntervalo() {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = hoje.getMonth() + 1;
+        const ultimoDia = new Date(ano, mes, 0).getDate();
+        return {
+            inicio: `${ano}-${String(mes).padStart(2,'0')}-01`,
+            fim: `${ano}-${String(mes).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`,
+        };
+    },
+
+    preencherMesVigente() {
+        const { inicio, fim } = this.mesVigenteIntervalo();
+        document.getElementById("dataInicial").value = inicio;
+        document.getElementById("dataFinal").value = fim;
+    },
+
+    aplicarDashboardMesVigente() {
+        const i = document.getElementById("dataInicial").value;
+        const f = document.getElementById("dataFinal").value;
+        const filtrado = this.aplicarFiltroPorData(this.state.registros, i, f);
+        this.updateAll(filtrado);
+    },
+
+    mostrar(secaoId) {
+        ["painel", "form", "config", "dados"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = id === secaoId ? "block" : "none";
+        });
+        if (secaoId !== "dados") {
+            this.toggleTabelaExpandida(false);
+        }
+    },
+
+    abrirForm() {
+        this.mostrar("form");
+        document.getElementById("form").scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+
+    abrirConfig() {
+        this.mostrar("config");
+        document.getElementById("config").scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+
+    abrirDados() {
+        this.mostrar("dados");
+        this.renderTabelaDados(this.state.dadosFiltrados.length ? this.state.dadosFiltrados : this.state.registros);
+    },
+
+    bindDadosExpandir() {
+        if (!document.body.dataset.cpExpandBound) {
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && this.state.tabelaExpandida) {
+                    this.toggleTabelaExpandida(false);
+                }
+            });
+            document.body.dataset.cpExpandBound = "1";
+        }
+    },
+
+    toggleTabelaExpandida(force) {
+        const wrap = document.getElementById("dadosTableWrap");
+        const overlay = document.getElementById("dadosTableOverlay");
+        const btn = document.getElementById("btnExpandirDados");
+        if (!wrap || !overlay || !btn) return;
+
+        const next = typeof force === "boolean" ? force : !this.state.tabelaExpandida;
+        this.state.tabelaExpandida = next;
+        wrap.classList.toggle("cp-table-wrap--fullscreen", next);
+        overlay.classList.toggle("is-visible", next);
+        btn.textContent = next ? "Fechar expansão" : "Expandir tabela";
+        document.body.style.overflow = next ? "hidden" : "";
+        document.body.classList.toggle("cacarolas-fullscreen-lock", next);
+    },
+
+    bindHoraMaquina() {
+        ["inicio", "fim", "refeicao", "paradas", "quantidade"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.dataset.boundHora) {
+                el.addEventListener("input", () => this.getHora());
+                el.dataset.boundHora = "1";
+            }
+        });
+    },
+
+    bindProduto() {
+        const produto = document.getElementById("produto");
+        if (produto && !produto.dataset.boundProduto) {
+            produto.addEventListener("input", () => {
+                const nome = produto.value.trim().toLowerCase();
+                const encontrado = this.state.produtos.find(p => String(p.nome || "").trim().toLowerCase() === nome);
+                if (encontrado) document.getElementById("cicloIdeal").value = Number(encontrado.ciclo || 0);
+            });
+            produto.dataset.boundProduto = "1";
+        }
+    },
+
+    addMaquina() {
+        const input = document.getElementById("novaMaquina");
+        const nome = input.value.trim();
+        if (!nome) return;
+        if (!this.state.maquinas.includes(nome)) {
+            this.state.maquinas.push(nome);
+            localStorage.setItem("maquinas", JSON.stringify(this.state.maquinas));
+            this.atualizarListas();
+        }
+        input.value = "";
+    },
+
+    importarExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = evt => {
+            const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            this.state.produtos = rows.map(r => ({ nome: r[0], ciclo: Number(r[1] || 0) })).filter(p => p.nome);
+            localStorage.setItem("produtos", JSON.stringify(this.state.produtos));
+            this.atualizarListas();
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    atualizarListas() {
+        const listaMaquinas = document.getElementById("listaMaquinas");
+        const selectMaquina = document.getElementById("maquina");
+        const listaProdutos = document.getElementById("listaProdutos");
+        const datalist = document.getElementById("produtosDatalist");
+        listaMaquinas.innerHTML = "";
+        selectMaquina.innerHTML = "";
+        listaProdutos.innerHTML = "";
+        datalist.innerHTML = "";
+        this.state.maquinas.forEach(m => {
+            listaMaquinas.innerHTML += `<li>${m}</li>`;
+            selectMaquina.innerHTML += `<option value="${m}">${m}</option>`;
+        });
+        this.state.produtos.forEach(p => {
+            listaProdutos.innerHTML += `<li>${p.nome} (${p.ciclo}s)</li>`;
+            datalist.innerHTML += `<option value="${p.nome}"></option>`;
+        });
+    },
+
+    calcularMinutosTrabalhados() {
+        const inicio = document.getElementById("inicio").value;
+        const fim = document.getElementById("fim").value;
+        const refeicao = Number(document.getElementById("refeicao").value || 0);
+        const paradas = Number(document.getElementById("paradas").value || 0);
+        if (!inicio || !fim) return 0;
+        const [h1, m1] = inicio.split(":").map(Number);
+        const [h2, m2] = fim.split(":").map(Number);
+        let totalMin = (h2 * 60 + m2) - (h1 * 60 + m1);
+        if (totalMin < 0) totalMin += 24 * 60;
+        totalMin -= refeicao;
+        totalMin -= paradas;
+        return Math.max(0, totalMin);
+    },
+
+    getHora() {
+        const totalMin = this.calcularMinutosTrabalhados();
+        const horas = totalMin / 60;
+        const quantidade = Number(document.getElementById("quantidade").value || 0);
+        const pecasHora = horas > 0 ? quantidade / horas : 0;
+        document.getElementById("horaMaquina").value = totalMin > 0 ? horas.toFixed(2) : "";
+        document.getElementById("pecasHora").value = horas > 0 && quantidade > 0 ? pecasHora.toFixed(2) : "";
+        return { horas, pecasHora };
+    },
+
+    salvar() {
+        const calculos = this.getHora();
+        const perdas =
+            Number(document.getElementById("material").value || 0) +
+            Number(document.getElementById("estampo").value || 0) +
+            Number(document.getElementById("polimento").value || 0) +
+            Number(document.getElementById("refilador").value || 0) +
+            Number(document.getElementById("rebite").value || 0) +
+            Number(document.getElementById("amassado").value || 0) +
+            Number(document.getElementById("pintura").value || 0);
+        const base = this.normalizeRegistro({
+            uid: this.state.editUid || `${Date.now()}`,
+            data: document.getElementById("data").value,
+            turno: document.getElementById("turno").value,
+            maquina: document.getElementById("maquina").value,
+            responsavel: document.getElementById("responsavel").value,
+            produto: document.getElementById("produto").value,
+            quantidade: Number(document.getElementById("quantidade").value || 0),
+            odf: document.getElementById("odf").value,
+            inicio: document.getElementById("inicio").value,
+            fim: document.getElementById("fim").value,
+            refeicao: Number(document.getElementById("refeicao").value || 0),
+            tempo: calculos.horas,
+            pecasHora: calculos.pecasHora,
+            paradasMin: Number(document.getElementById("paradas").value || 0),
+            ciclo: Number(document.getElementById("cicloIdeal").value || 0),
+            perdas,
+            material: Number(document.getElementById("material").value || 0),
+            estampo: Number(document.getElementById("estampo").value || 0),
+            polimento: Number(document.getElementById("polimento").value || 0),
+            refilador: Number(document.getElementById("refilador").value || 0),
+            rebite: Number(document.getElementById("rebite").value || 0),
+            amassado: Number(document.getElementById("amassado").value || 0),
+            pintura: Number(document.getElementById("pintura").value || 0)
+        });
+        if (!base.data) {
+            alert("Informe a data do registro.");
+            return;
+        }
+        const idx = this.state.registros.findIndex(r => r.uid === this.state.editUid);
+        if (idx >= 0) this.state.registros[idx] = base;
+        else this.state.registros.push(base);
+        this.saveRegistros();
+        this.state.editUid = null;
+        this.atualizarBotaoSalvar();
+        this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
+        this.aplicarDashboardMesVigente();
+        this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);
+        this.limparFormulario();
+        alert(idx >= 0 ? "Registro atualizado com sucesso" : "Registro salvo com sucesso");
+    },
+
+    editar(uid) {
+        const r = this.state.registros.find(x => x.uid === uid);
+        if (!r) return;
+        this.state.editUid = uid;
+        document.getElementById("data").value = r.data || "";
+        document.getElementById("maquina").value = r.maquina || "";
+        document.getElementById("turno").value = r.turno || "1";
+        document.getElementById("responsavel").value = r.responsavel || "";
+        document.getElementById("produto").value = r.produto || "";
+        document.getElementById("cicloIdeal").value = r.ciclo || 0;
+        document.getElementById("quantidade").value = r.quantidade || 0;
+        document.getElementById("odf").value = r.odf || "";
+        document.getElementById("inicio").value = r.inicio || "";
+        document.getElementById("fim").value = r.fim || "";
+        document.getElementById("refeicao").value = r.refeicao || 0;
+        document.getElementById("paradas").value = r.paradasMin || 0;
+        document.getElementById("material").value = r.material || 0;
+        document.getElementById("estampo").value = r.estampo || 0;
+        document.getElementById("polimento").value = r.polimento || 0;
+        document.getElementById("refilador").value = r.refilador || 0;
+        document.getElementById("rebite").value = r.rebite || 0;
+        document.getElementById("amassado").value = r.amassado || 0;
+        document.getElementById("pintura").value = r.pintura || 0;
+        this.getHora();
+        this.atualizarBotaoSalvar();
+        this.abrirForm();
+    },
+
+    excluir(uid) {
+        if (!confirm("Deseja excluir este registro?")) return;
+        this.state.registros = this.state.registros.filter(r => r.uid !== uid);
+        this.saveRegistros();
+        this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
+        this.aplicarDashboardMesVigente();
+        this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);
+    },
+
+    atualizarBotaoSalvar() {
+        const botao = document.querySelector('#form button.btn.btn-accent');
+        if (botao) botao.textContent = this.state.editUid ? 'Atualizar' : 'Salvar';
+    },
+
+    limparFormulario() {
+        ["data", "responsavel", "produto", "cicloIdeal", "quantidade", "odf", "inicio", "fim", "refeicao", "paradas", "horaMaquina", "pecasHora", "material", "estampo", "polimento", "refilador", "rebite", "amassado", "pintura"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+        document.getElementById("turno").value = "1";
+        this.state.editUid = null;
+        this.atualizarBotaoSalvar();
+    },
+
+    updateAll(lista) {
+        this.calcularKPI(lista);
+        this.graficos(lista);
+        this.ranking(lista);
+        this.oeePorMaquina(lista);
+    },
+
+    calcularKPI(lista) {
+        let tempo = 0, parada = 0, prod = 0, perda = 0, ideal = 0;
+        const porDia = {};
+        lista.forEach(r => {
+            tempo += this.toNumber(r.tempo);
+            parada += this.toNumber(r.parada);
+            prod += this.toNumber(r.quantidade);
+            perda += this.toNumber(r.perdas);
+            if (this.toNumber(r.ciclo) > 0) ideal += (this.toNumber(r.tempo) * 3600) / this.toNumber(r.ciclo);
+            const d = this.normalizeDate(r.data) || "Sem data";
+            if (!porDia[d]) porDia[d] = { tempo: 0, parada: 0, prod: 0, perda: 0, ideal: 0 };
+            porDia[d].tempo += this.toNumber(r.tempo);
+            porDia[d].parada += this.toNumber(r.parada);
+            porDia[d].prod += this.toNumber(r.quantidade);
+            porDia[d].perda += this.toNumber(r.perdas);
+            if (this.toNumber(r.ciclo) > 0) porDia[d].ideal += (this.toNumber(r.tempo) * 3600) / this.toNumber(r.ciclo);
+        });
+        /* tempo = hora maquina ja liquida de paradas; parada = paradas em h. Disponibilidade = tempo / (tempo + parada). */
+        const disp = (tempo + parada) > 0 ? tempo / (tempo + parada) : 0;
+        const perf = ideal > 0 ? prod / ideal : 0;
+        const qual = (prod + perda) > 0 ? prod / (prod + perda) : 0;
+        const oee = disp * perf * qual * 100;
+        const oeeEl = document.getElementById("kpiOEE");
+        if (oeeEl) oeeEl.innerText = oee.toFixed(1) + "%";
+        document.getElementById("kpiProd").innerText = prod;
+        document.getElementById("kpiPerda").innerText = perda;
+        document.getElementById("kpiDisp").innerText = (disp * 100).toFixed(1) + "%";
+
+        const oeePct = Math.max(0, Math.min(100, oee));
+        const dispPct = Math.max(0, Math.min(100, disp * 100));
+        const totalMov = Math.max(0, prod + perda);
+
+        this.kpiPieChart("kpiChartOEE", ["OEE", "Restante"], [oeePct, Math.max(0, 100 - oeePct)], ["rgba(85, 212, 0, 0.95)", "rgba(130, 120, 110, 0.35)"]);
+        this.kpiPieChart("kpiChartProd", ["Produção", "Perdas"], [prod, perda], ["rgba(0, 85, 212, 0.95)", "rgba(248, 113, 113, 0.88)"]);
+        this.kpiPieChart("kpiChartPerda", ["Perdas", "Produção"], [perda, prod], ["rgba(248, 113, 113, 0.95)", "rgba(120, 130, 150, 0.35)"]);
+        this.kpiPieChart("kpiChartDisp", ["Disponível", "Indisponível"], [dispPct, Math.max(0, 100 - dispPct)], ["rgba(255, 204, 0, 0.95)", "rgba(130, 120, 110, 0.35)"]);
+    },
+
+    kpiPieChart(id, labels, data, colors) {
+        const canvas = document.getElementById(id);
+        if (!canvas) return;
+        const prev = this.state.charts[id];
+        if (prev && typeof prev.destroy === "function") prev.destroy();
+        const sum = data.reduce((a, b) => a + this.toNumber(b), 0);
+        const safeLabels = sum > 0 ? labels : ["Sem dados"];
+        const safeData = sum > 0 ? data : [1];
+        const safeColors = sum > 0 ? colors : ["rgba(140, 130, 120, 0.35)"];
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        const tipBg = isDark ? "rgba(37, 34, 32, 0.96)" : "rgba(250, 247, 240, 0.98)";
+        const tipTitle = isDark ? "#e8c8a0" : "#5c3d2e";
+        const tipBody = isDark ? "#e8e2d8" : "#2a2319";
+        const tipBorder = isDark ? "rgba(212, 165, 116, 0.4)" : "rgba(92, 61, 46, 0.22)";
+        this.state.charts[id] = new Chart(canvas.getContext("2d"), {
+            type: "doughnut",
+            data: {
+                labels: safeLabels,
+                datasets: [{
+                    data: safeData,
+                    backgroundColor: safeColors,
+                    borderColor: safeColors.map(() => isDark ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.65)"),
+                    borderWidth: 1.6,
+                    spacing: 1.5,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "52%",
+                animation: { duration: 450, easing: "easeOutCubic" },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: tipBg,
+                        titleColor: tipTitle,
+                        bodyColor: tipBody,
+                        borderColor: tipBorder,
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 6,
+                    }
+                }
+            }
+        });
+    },
+
+    oeePorMaquina(lista) {
+        const mapa = {};
+        lista.forEach(r => {
+            const maq = r.maquina || 'Sem máquina';
+            if (!mapa[maq]) mapa[maq] = { tempo: 0, parada: 0, prod: 0, perda: 0, ideal: 0 };
+            mapa[maq].tempo += this.toNumber(r.tempo);
+            mapa[maq].parada += this.toNumber(r.parada);
+            mapa[maq].prod += this.toNumber(r.quantidade);
+            mapa[maq].perda += this.toNumber(r.perdas);
+            if (this.toNumber(r.ciclo) > 0) mapa[maq].ideal += (this.toNumber(r.tempo) * 3600) / this.toNumber(r.ciclo);
+        });
+        const ul = document.getElementById("oeeMaquina");
+        ul.innerHTML = "";
+        const entries = Object.entries(mapa).sort((a, b) => a[0].localeCompare(b[0]));
+        if (!entries.length) {
+            ul.innerHTML = '<li>Sem dados no período.</li>';
+            return;
+        }
+        entries.forEach(([maq, v]) => {
+            const disp = (v.tempo + v.parada) > 0 ? v.tempo / (v.tempo + v.parada) : 0;
+            const perf = v.ideal > 0 ? v.prod / v.ideal : 0;
+            const qual = (v.prod + v.perda) > 0 ? v.prod / (v.prod + v.perda) : 0;
+            const oee = disp * perf * qual * 100;
+            ul.innerHTML += `<li>${maq} - ${oee.toFixed(1)}%</li>`;
+        });
+    },
+
+    ranking(lista) {
+        const mapa = {};
+        lista.forEach(r => {
+            const maq = r.maquina || 'Sem máquina';
+            mapa[maq] = (mapa[maq] || 0) + this.toNumber(r.quantidade);
+        });
+        const ordenado = Object.entries(mapa).sort((a, b) => b[1] - a[1]);
+        const ul = document.getElementById("rankingMaquinas");
+        ul.innerHTML = "";
+        if (!ordenado.length) {
+            ul.innerHTML = '<li>Sem dados no período.</li>';
+            return;
+        }
+        ordenado.forEach(([maq, qtd]) => {
+            ul.innerHTML += `<li>${maq} - ${qtd}</li>`;
+        });
+    },
+
+    graficos(lista) {
+        this.chart("chart1", lista.filter(x => this.normalizeTurno(x.turno) === "1"), "1º turno", CP_CORES_TURNO[0], 0);
+        this.chart("chart2", lista.filter(x => this.normalizeTurno(x.turno) === "2"), "2º turno", CP_CORES_TURNO[1], 1);
+        this.chart("chart3", lista.filter(x => this.normalizeTurno(x.turno) === "3"), "3º turno", CP_CORES_TURNO[2], 2);
+    },
+
+    renderPainelTurno(infoId, dados, totalProd, totalPerda) {
+        const el = document.getElementById(infoId);
+        if (!el) return;
+        const nReg = dados.length;
+        const mediaProdReg = nReg > 0 ? totalProd / nReg : 0;
+        const taxaPerda = (totalProd + totalPerda) > 0 ? (totalPerda / (totalProd + totalPerda)) * 100 : 0;
+        const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+        el.innerHTML = `
+            <dl>
+                <dt>Producao total</dt><dd>${fmt(totalProd)}</dd>
+                <dt>Perdas totais</dt><dd>${fmt(totalPerda)}</dd>
+                <dt>Registros</dt><dd>${nReg}</dd>
+                <dt>Media de producao/registro</dt><dd>${nReg ? fmt(mediaProdReg) : "—"}</dd>
+                <dt>Taxa de perda</dt><dd>${taxaPerda.toFixed(1)}%</dd>
+            </dl>
+        `;
+    },
+
+    chart(id, dados, label, cores, turnIndex) {
+        const canvas = document.getElementById(id);
+        if (!canvas) return;
+        const infoId = id + "Info";
+        const anterior = this.state.charts[id];
+        if (anterior && typeof anterior.destroy === 'function') anterior.destroy();
+        const estilo = cores || CP_CORES_TURNO[0];
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        const tickColor = isDark ? "rgba(200, 195, 188, 0.92)" : "rgba(74, 60, 45, 0.88)";
+        const tipBg = isDark ? "rgba(37, 34, 32, 0.96)" : "rgba(250, 247, 240, 0.98)";
+        const tipTitle = isDark ? "#e8c8a0" : "#5c3d2e";
+        const tipBody = isDark ? "#e8e2d8" : "#2a2319";
+        const tipBorder = isDark ? "rgba(212, 165, 116, 0.4)" : "rgba(92, 61, 46, 0.22)";
+        const totalProd = dados.reduce((acc, d) => acc + this.toNumber(d.quantidade), 0);
+        const totalPerda = dados.reduce((acc, d) => acc + this.toNumber(d.perdas), 0);
+        const hasData = totalProd > 0 || totalPerda > 0;
+        const pieLabels = hasData ? ["Produção", "Perdas"] : ["Sem dados"];
+        const pieData = hasData ? [totalProd, totalPerda] : [1];
+        const bg = hasData
+            ? [estilo.backgroundColor, "rgba(248, 113, 113, 0.88)"]
+            : ["rgba(140, 130, 120, 0.35)"];
+        const borderC = hasData
+            ? [estilo.borderColor, "rgba(252, 165, 165, 0.95)"]
+            : ["rgba(120, 110, 100, 0.5)"];
+        const showLegend = hasData;
+        this.renderPainelTurno(infoId, dados, totalProd, totalPerda);
+        this.state.charts[id] = new Chart(canvas.getContext('2d'), {
+            type: "doughnut",
+            data: {
+                labels: pieLabels,
+                datasets: [{
+                    label,
+                    data: pieData,
+                    backgroundColor: bg,
+                    borderColor: borderC,
+                    borderWidth: 1.8,
+                    spacing: 2,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "64%",
+                animation: { duration: 520, easing: "easeOutCubic" },
+                interaction: { mode: "index", intersect: true },
+                plugins: {
+                    legend: {
+                        display: showLegend,
+                        position: "bottom",
+                        labels: {
+                            color: tickColor,
+                            font: { family: "'DM Sans', system-ui, sans-serif", size: 10, weight: "600" },
+                            boxWidth: 10,
+                            padding: 8,
+                        },
+                    },
+                    tooltip: {
+                        backgroundColor: tipBg,
+                        titleColor: tipTitle,
+                        bodyColor: tipBody,
+                        borderColor: tipBorder,
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 6,
+                        displayColors: true,
+                        boxPadding: 6,
+                        callbacks: {
+                            label(ctx) {
+                                if (!hasData && ctx.dataIndex === 0) return " Sem producao no periodo";
+                                const v = ctx.parsed;
+                                const sum = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                                const pct = ((v / sum) * 100).toFixed(1);
+                                return ` ${ctx.label}: ${v} (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+                onHover: (e, els) => {
+                    e.native.target.style.cursor = els.length ? "pointer" : "default";
+                },
+            },
+        });
+    },
+
+    aplicarFiltroPorData(lista, dataInicial, dataFinal) {
+        return lista.filter(r => {
+            const data = this.normalizeDate(r.data);
+            return (!dataInicial || data >= dataInicial) && (!dataFinal || data <= dataFinal);
+        });
+    },
+
+    filtrar() {
+        this.aplicarDashboardMesVigente();
+    },
+
+    filtrarDados() {
+        const i = document.getElementById("dadosDataInicial").value;
+        const f = document.getElementById("dadosDataFinal").value;
+        const filtrado = this.aplicarFiltroPorData(this.state.registros, i, f);
+        this.state.dadosFiltrados = filtrado;
+        this.renderTabelaDados(filtrado);
+    },
+
+    limparFiltroDados() {
+        document.getElementById("dadosDataInicial").value = "";
+        document.getElementById("dadosDataFinal").value = "";
+        this.state.dadosFiltrados = [...this.state.registros];
+        this.renderTabelaDados(this.state.registros);
+    },
+
+    renderTabelaDados(lista) {
+        const tbody = document.getElementById("dadosTabelaBody");
+        const vazio = document.getElementById("dadosVazio");
+        tbody.innerHTML = "";
+        if (!lista.length) {
+            vazio.style.display = "block";
+            return;
+        }
+        vazio.style.display = "none";
+        lista.slice().sort((a, b) => String(b.data || "").localeCompare(String(a.data || ""))).forEach(r => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${r.data || ""}</td>
+                    <td>${r.turno || ""}</td>
+                    <td>${r.maquina || ""}</td>
+                    <td>${r.responsavel || ""}</td>
+                    <td>${r.produto || ""}</td>
+                    <td>${r.odf || ""}</td>
+                    <td>${r.quantidade || 0}</td>
+                    <td>${this.toNumber(r.tempo).toFixed(2)}</td>
+                    <td>${this.toNumber(r.pecasHora).toFixed(2)}</td>
+                    <td>${this.toNumber(r.paradasMin)}</td>
+                    <td>${r.perdas || 0}</td>
+                    <td>
+                        <button type="button" class="btn" onclick="App.editar('${r.uid}')">Editar</button>
+                        <button type="button" class="btn" onclick="App.excluir('${r.uid}')">Excluir</button>
+                    </td>
+                </tr>`;
+        });
+    },
+
+    baixarExcel() {
+        const lista = this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros;
+        const dados = lista.map(r => ({
+            Data: r.data || "",
+            Turno: r.turno || "",
+            Maquina: r.maquina || "",
+            Responsavel: r.responsavel || "",
+            Produto: r.produto || "",
+            ODF: r.odf || "",
+            Quantidade: r.quantidade || 0,
+            Hora_Maquina: this.toNumber(r.tempo).toFixed(2),
+            Pecas_por_Hora: this.toNumber(r.pecasHora).toFixed(2),
+            Paradas_min: this.toNumber(r.paradasMin),
+            Refeicao_min: this.toNumber(r.refeicao),
+            Perdas: this.toNumber(r.perdas)
+        }));
+        const ws = XLSX.utils.json_to_sheet(dados);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Dados");
+        XLSX.writeFile(wb, "controle_producao_cacarolas.xlsx");
+    }
+};
+
+window.App = App;
+document.addEventListener("DOMContentLoaded", () => App.init());
+</script>
+{% endblock %}

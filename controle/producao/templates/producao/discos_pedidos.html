@@ -1,0 +1,217 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Pedidos • Discos{% endblock %}
+{% block subtitle %}PCP • Discos{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Pedidos{% endblock %}
+{% block page_heading_meta %}Modelo para impressão por pedido/local{% endblock %}
+
+{% block topbar_right_actions %}
+<a class="btn" href="{% url 'pcp' %}">PCP</a>
+<a class="btn" href="{% url 'discos' %}">Discos</a>
+<button class="btn btn-accent" type="button" onclick="window.print()">Imprimir</button>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dp-wrap { max-width: 1320px; margin: 0 auto; }
+    .dp-layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+    @media (max-width: 980px) { .dp-layout { grid-template-columns: 1fr; } }
+
+    .dp-box {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: rgba(255,255,255,0.10);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: var(--shadow-card);
+        padding: 12px 14px;
+    }
+    .dp-list { margin-top: 8px; max-height: 280px; overflow: auto; display: grid; gap: 6px; }
+    .dp-list label { display: flex; gap: 8px; align-items: center; font-size: 0.84rem; }
+    .dp-setor-grid { margin-top: 8px; display: grid; grid-template-columns: 1fr; gap: 6px; max-height: 190px; overflow: auto; }
+
+    .sheet {
+        background: #fff;
+        color: #111;
+        border: 1px solid #2f2f2f;
+        border-radius: 4px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+        padding: 16px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .sheet td, .sheet th { border: 1px solid #2f2f2f; }
+    .head-table, .grid-table { width: 100%; border-collapse: collapse; }
+    .grid-table { table-layout: fixed; }
+    .head-table td { padding: 8px; font-weight: 700; text-transform: uppercase; }
+    .head-label { width: 50%; font-size: 0.78rem; letter-spacing: 0.04em; }
+    .head-input { width: 100%; border: 0; outline: 0; font-size: 0.95rem; background: transparent; }
+    .order-line td { padding: 8px; text-align: center; font-weight: 700; }
+    .company td { padding: 10px 8px; text-align: center; font-size: 1.15rem; font-weight: 700; letter-spacing: 0.02em; }
+    .grid-table th { padding: 6px 8px; font-size: 0.78rem; background: #f0f0f0; }
+    .grid-table td { padding: 7px 8px; font-size: 0.82rem; }
+    .grid-table th:first-child,
+    .grid-table td:first-child {
+        width: 66%;
+        white-space: nowrap;
+        overflow: visible;
+        text-overflow: clip;
+    }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .print-note { margin-top: 8px; color: var(--muted); font-size: 0.78rem; }
+
+    @media print {
+        .sidebar, .app-topbar, .footer, .workspace-deco, .dp-filters, .print-note { display: none !important; }
+        .workspace, .main-shell { margin: 0 !important; padding: 0 !important; background: transparent !important; box-shadow: none !important; border: 0 !important; }
+        .sheet { box-shadow: none; border: 1px solid #000; border-radius: 0; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dp-wrap">
+    <div class="dp-layout">
+        <aside class="dp-box dp-filters">
+            <div class="pcp-title" style="font-size:0.88rem;">Filtrar por Pedido</div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn" type="button" onclick="PedidosView.all('pedidoLista')">Todos</button>
+                <button class="btn" type="button" onclick="PedidosView.none('pedidoLista')">Limpar</button>
+            </div>
+            <div id="pedidoLista" class="dp-list">
+                {% for p in pedidos %}
+                    <label><input type="checkbox" value="{{ p }}" checked onchange="PedidosView.apply()" /><span>{{ p }}</span></label>
+                {% empty %}
+                    <div class="cp-help">Sem pedidos.</div>
+                {% endfor %}
+            </div>
+
+            <div class="pcp-title" style="font-size:0.88rem; margin-top:14px;">Filtrar por Local</div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="btn" type="button" onclick="PedidosView.all('setorLista')">Todos</button>
+                <button class="btn" type="button" onclick="PedidosView.none('setorLista')">Limpar</button>
+            </div>
+            <div id="setorLista" class="dp-setor-grid">
+                {% for s in setores_disponiveis %}
+                    <label><input type="checkbox" value="{{ s }}" checked onchange="PedidosView.apply()" /><span>{{ s }}</span></label>
+                {% empty %}
+                    <div class="cp-help">Sem locais.</div>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <section class="sheet">
+            <table class="head-table">
+                <tr>
+                    <td class="head-label">Previsão:
+                        <input id="previsaoInput" class="head-input" type="date" />
+                    </td>
+                    <td class="head-label">Finalizado:</td>
+                </tr>
+            </table>
+
+            <table class="head-table" style="margin-top:14px;">
+                <tr class="order-line">
+                    <td id="pedidoHeader">-</td>
+                    <td style="width:150px;">INDUSTRIALIZAÇÃO</td>
+                    <td style="width:180px;">{{ hoje|date:"d/m/Y" }}</td>
+                </tr>
+                <tr class="company">
+                    <td colspan="3" id="razaoHeader">SEM RAZÃO SOCIAL</td>
+                </tr>
+            </table>
+
+            <table class="grid-table" style="margin-top:0;">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th style="width:70px;" class="center">OS</th>
+                        <th style="width:160px;" class="center">Cód. do Produto</th>
+                        <th style="width:120px;" class="center">Soma de Qtd KG</th>
+                        <th style="width:90px;" class="center">Qtd Pcs</th>
+                    </tr>
+                </thead>
+                <tbody id="pedidosBody"></tbody>
+            </table>
+            <div class="print-note">Campos de OS, Qtd KG e Qtd Pcs ficam em branco nesta etapa.</div>
+        </section>
+    </div>
+</div>
+
+{{ rows|json_script:"discosRowsData" }}
+<script>
+const PedidosView = {
+    rows: [],
+    sel(id) {
+        const wrap = document.getElementById(id);
+        if (!wrap) return new Set();
+        const boxes = Array.from(wrap.querySelectorAll("input[type='checkbox']"));
+        const all = boxes.map(b => (b.value || "").trim()).filter(Boolean);
+        const checked = boxes.filter(b => b.checked).map(b => (b.value || "").trim()).filter(Boolean);
+        return new Set(checked.length ? checked : all);
+    },
+    all(id) {
+        const wrap = document.getElementById(id);
+        if (!wrap) return;
+        wrap.querySelectorAll("input[type='checkbox']").forEach(c => c.checked = true);
+        this.apply();
+    },
+    none(id) {
+        const wrap = document.getElementById(id);
+        if (!wrap) return;
+        wrap.querySelectorAll("input[type='checkbox']").forEach(c => c.checked = false);
+        this.apply();
+    },
+    apply() {
+        const selPedidos = this.sel("pedidoLista");
+        const selSetores = this.sel("setorLista");
+        const filtered = this.rows.filter((r) => {
+            const p = String(r.pedido || "").trim();
+            const setores = String(r.setores_match_str || "").split("|").map(x => x.trim()).filter(Boolean);
+            return selPedidos.has(p) && setores.some(s => selSetores.has(s));
+        });
+
+        const pedidos = Array.from(new Set(filtered.map(r => String(r.pedido || "").trim()).filter(Boolean)));
+        document.getElementById("pedidoHeader").textContent = pedidos.length ? pedidos.join(" / ") : "-";
+
+        const razoes = Array.from(new Set(filtered.map(r => String(r.razao_social || "").trim()).filter(Boolean)));
+        document.getElementById("razaoHeader").textContent = razoes.length === 1 ? razoes[0] : (razoes.length ? "MÚLTIPLAS RAZÕES SOCIAIS" : "SEM RAZÃO SOCIAL");
+
+        const grouped = new Map();
+        filtered.forEach((r) => {
+            const desc = String(r.descricao || "").trim();
+            const cod = String(r.codigo || "").trim();
+            const key = desc + "||" + cod;
+            if (!grouped.has(key)) grouped.set(key, { descricao: desc, codigo: cod });
+        });
+
+        const body = document.getElementById("pedidosBody");
+        body.innerHTML = "";
+        if (!grouped.size) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = '<td colspan="5" class="center">Sem linhas para o filtro selecionado.</td>';
+            body.appendChild(tr);
+            return;
+        }
+        grouped.forEach((g) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${g.descricao || ""}</td>
+                <td class="center"></td>
+                <td class="center">${g.codigo || ""}</td>
+                <td class="center"></td>
+                <td class="center"></td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+};
+
+document.addEventListener("DOMContentLoaded", function () {
+    const dataEl = document.getElementById("discosRowsData");
+    PedidosView.rows = dataEl ? JSON.parse(dataEl.textContent || "[]") : [];
+    PedidosView.apply();
+});
+</script>
+{% endblock %}
+

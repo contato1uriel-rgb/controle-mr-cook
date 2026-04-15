@@ -1,0 +1,373 @@
+{% extends "producao/base.html" %}
+{% load static %}
+
+{% block title %}Ordem de Serviço • Mega{% endblock %}
+{% block subtitle %}Mega • Ordem de serviço em cards{% endblock %}
+
+{% block extra_head %}
+<style>
+    html[data-theme="dark"], html[data-theme="light"] {
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --focus: rgba(37, 99, 235, 0.35);
+        --border: rgba(37, 99, 235, 0.22);
+    }
+</style>
+
+<style>
+.os-page { max-width: 1600px; margin: 0 auto; }
+.os-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+.os-header h1 { margin:0; font-size: 2rem; }
+.os-header p { margin:6px 0 0; color: var(--muted); }
+.os-order-bar { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display:grid; grid-template-columns: 1fr 280px; gap:16px; align-items:center; margin-bottom:16px; }
+.os-logo-box { min-height:86px; border:1px solid var(--border); display:flex; align-items:center; justify-content:flex-start; padding:12px 16px; background: var(--surface); border-radius:10px; overflow:hidden; }
+.os-logo-image { display:block; max-width:260px; width:100%; height:auto; object-fit:contain; }
+.os-order-number-box { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+.os-top-actions, .os-bottom-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+.os-layout { display:grid; grid-template-columns: minmax(0, 1fr) 340px; gap:18px; }
+.os-left, .os-right { display:flex; flex-direction:column; gap:16px; }
+.os-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius:12px; padding:16px; box-shadow: var(--shadow); }
+.os-card h3 { margin:0 0 12px; letter-spacing: .04em; font-size: .95rem; text-transform: uppercase; }
+.os-grid-2, .os-grid-3, .os-grid-4 { display:grid; gap:12px; }
+.os-grid-2 { grid-template-columns: 1fr 1fr; }
+.os-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.os-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.os-field { display:flex; flex-direction:column; gap:6px; }
+.os-field label { font-size:.75rem; font-weight:700; text-transform: uppercase; color: var(--muted); }
+.os-field input, .os-field select, .os-field textarea { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; }
+.os-field textarea { resize: vertical; min-height: 90px; }
+.os-status-row, .os-process-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px; }
+.os-status-badge { background: #2563eb; color:#fff; padding:6px 12px; border-radius:999px; font-size:.75rem; font-weight:700; white-space:nowrap; }
+.os-process-total { font-size:.75rem; color: var(--muted); font-weight:700; }
+@media (max-width: 1100px) { .os-layout, .os-order-bar { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .os-grid-2, .os-grid-3, .os-grid-4, .os-header, .os-top-actions, .os-bottom-actions { grid-template-columns:1fr; flex-direction:column; align-items:stretch; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="os-page">
+    <div class="os-header">
+        <div>
+            <h1>Nova Ordem</h1>
+            <p>Preencha os campos e salve a OS.</p>
+        </div>
+        <a class="btn" href="{% url 'mega' %}">← Voltar</a>
+    </div>
+
+    <form id="ordemForm">
+        <div class="os-order-bar">
+            <div class="os-logo-box">
+                <img class="os-logo-image" src="{% static 'producao/img/mega_aluminio.png' %}" alt="Mega Alumínio">
+            </div>
+            <div class="os-order-number-box">
+                <h2 style="margin:0; font-size:1rem;">ORDEM DE SERVIÇO</h2>
+                <input type="text" id="numeroOrdem" placeholder="Número da ordem" style="width:100%; max-width:240px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text);">
+            </div>
+        </div>
+
+        <div class="os-layout">
+            <div class="os-left">
+                <section class="os-card">
+                    <div class="os-field">
+                        <label for="cliente">Cliente</label>
+                        <input type="text" id="cliente">
+                    </div>
+                    <div class="os-grid-3" style="margin-top: 12px;">
+                        <div class="os-field">
+                            <label for="tipoPlacas">Tipo de Placas</label>
+                            <input type="text" id="tipoPlacas">
+                        </div>
+                        <div class="os-field">
+                            <label for="pedacos">Pedaços</label>
+                            <input type="number" id="pedacos">
+                        </div>
+                        <div class="os-field">
+                            <label for="placas">Placas</label>
+                            <input type="number" id="placas">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-field">
+                        <label for="desbasteTexto">Desbaste</label>
+                        <input type="text" id="desbasteTexto">
+                    </div>
+                    <div class="os-field" style="margin-top: 12px;">
+                        <label for="corteTexto">Corte</label>
+                        <input type="text" id="corteTexto">
+                    </div>
+                    <div class="os-field" style="margin-top: 12px;">
+                        <label for="laminacaoTexto">Laminação</label>
+                        <input type="text" id="laminacaoTexto">
+                    </div>
+                    <div class="os-grid-2" style="margin-top: 12px;">
+                        <div class="os-field">
+                            <label for="medida">Medida</label>
+                            <input type="text" id="medida">
+                        </div>
+                        <div class="os-field">
+                            <label for="comprimento">Comprimento</label>
+                            <input type="text" id="comprimento">
+                        </div>
+                    </div>
+                    <div class="os-field" style="margin-top: 12px;">
+                        <label for="tempera">Têmpera</label>
+                        <input type="text" id="tempera">
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <h3>Expedição</h3>
+                    <div class="os-grid-2">
+                        <div class="os-field">
+                            <label for="expedicaoInicio">Início</label>
+                            <input type="date" id="expedicaoInicio">
+                        </div>
+                        <div class="os-field">
+                            <label for="expedicaoFinal">Final</label>
+                            <input type="date" id="expedicaoFinal">
+                        </div>
+                    </div>
+                    <div class="os-grid-3" style="margin-top: 12px;">
+                        <div class="os-field">
+                            <label for="liquido">Líquido</label>
+                            <input type="text" id="liquido">
+                        </div>
+                        <div class="os-field">
+                            <label for="bruto">Bruto</label>
+                            <input type="text" id="bruto">
+                        </div>
+                        <div class="os-field">
+                            <label for="palete">Palete Nº</label>
+                            <input type="text" id="palete">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-field">
+                        <label for="responsavel">Responsável</label>
+                        <input type="text" id="responsavel">
+                    </div>
+                    <div class="os-field" style="margin-top: 12px;">
+                        <label for="obs">Obs</label>
+                        <textarea id="obs"></textarea>
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-field">
+                        <label for="dataSaida">Data Saída</label>
+                        <input type="date" id="dataSaida">
+                    </div>
+                </section>
+            </div>
+
+            <div class="os-right">
+                <section class="os-card">
+                    <div class="os-field">
+                        <label for="dataEntrada">Data Entrada</label>
+                        <input type="date" id="dataEntrada">
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-status-row">
+                        <div>
+                            <h3 style="margin-bottom:6px;">Status</h3>
+                            <div class="muted">Marque como concluída quando finalizar.</div>
+                        </div>
+                        <div class="os-status-badge" id="statusBadge">Aberta</div>
+                    </div>
+                    <button class="btn btn-accent" type="button" onclick="AppOS.marcarConcluida()">Marcar como Concluída</button>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-process-head">
+                        <div>
+                            <h3 style="margin-bottom:4px;">Desbaste</h3>
+                            <div class="muted">Máquina + horários (desconta refeição).</div>
+                        </div>
+                        <div class="os-process-total" id="totalDesbaste">Total: —</div>
+                    </div>
+                    <div class="os-field">
+                        <label for="desbasteMaquina">Máquina</label>
+                        <select id="desbasteMaquina">
+                            <option value="">Selecione…</option>
+                            <option>Máquina 1</option><option>Máquina 2</option><option>Máquina 3</option>
+                        </select>
+                    </div>
+                    <div class="os-grid-2" style="margin-top:12px;">
+                        <div class="os-field"><label for="desbasteHoraInicial">Hora inicial</label><input type="time" id="desbasteHoraInicial" onchange="AppOS.atualizarTotais()"></div>
+                        <div class="os-field"><label for="desbasteHoraFinal">Hora final</label><input type="time" id="desbasteHoraFinal" onchange="AppOS.atualizarTotais()"></div>
+                    </div>
+                    <div class="os-grid-2" style="margin-top:12px;">
+                        <div class="os-field"><label for="desbasteRefeicaoInicio">Refeição (início)</label><input type="time" id="desbasteRefeicaoInicio" onchange="AppOS.atualizarTotais()"></div>
+                        <div class="os-field"><label for="desbasteRefeicaoFim">Refeição (fim)</label><input type="time" id="desbasteRefeicaoFim" onchange="AppOS.atualizarTotais()"></div>
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-process-head">
+                        <div>
+                            <h3 style="margin-bottom:4px;">Laminador</h3>
+                            <div class="muted">Nº + horários.</div>
+                        </div>
+                        <div class="os-process-total" id="totalLaminador">Total: —</div>
+                    </div>
+                    <div class="os-field"><label for="laminadorNumero">N°</label><input type="text" id="laminadorNumero" placeholder="Ex.: 3"></div>
+                    <div class="os-grid-2" style="margin-top:12px;">
+                        <div class="os-field"><label for="laminadorHoraInicial">Hora inicial</label><input type="time" id="laminadorHoraInicial" onchange="AppOS.atualizarTotais()"></div>
+                        <div class="os-field"><label for="laminadorHoraFinal">Hora final</label><input type="time" id="laminadorHoraFinal" onchange="AppOS.atualizarTotais()"></div>
+                    </div>
+                    <div class="os-grid-2" style="margin-top:12px;">
+                        <div class="os-field"><label for="laminadorRefeicaoInicio">Refeição (início)</label><input type="time" id="laminadorRefeicaoInicio" onchange="AppOS.atualizarTotais()"></div>
+                        <div class="os-field"><label for="laminadorRefeicaoFim">Refeição (fim)</label><input type="time" id="laminadorRefeicaoFim" onchange="AppOS.atualizarTotais()"></div>
+                    </div>
+                </section>
+
+                <section class="os-card">
+                    <div class="os-process-head">
+                        <div>
+                            <h3 style="margin-bottom:4px;">Corte</h3>
+                            <div class="muted">Máquina + horários (desconta refeição).</div>
+                        </div>
+                        <div class="os-process-total" id="totalCorte">Total: —</div>
+                    </div>
+                    <div class="os-field">
+                        <label for="corteMaquina">Máquina</label>
+                        <select id="corteMaquina">
+                            <option value="">Selecione…</option>
+                            <option>Máquina 1</option><option>Máquina 2</option><option>Máquina 3</option>
+                        </select>
+                    </div>
+                    <div class="os-grid-2" style="margin-top:12px;">
+                        <div class="os-field"><label for="corteHoraInicial">Hora inicial</label><input type="time" id="corteHoraInicial" onchange="AppOS.atualizarTotais()"></div>
+                        <div class="os-field"><label for="corteHoraFinal">Hora final</label><input type="time" id="corteHoraFinal" onchange="AppOS.atualizarTotais()"></div>
+                    </div>
+                    <div class="os-grid-2" style="margin-top:12px;">
+                        <div class="os-field"><label for="corteRefeicaoInicio">Refeição (início)</label><input type="time" id="corteRefeicaoInicio" onchange="AppOS.atualizarTotais()"></div>
+                        <div class="os-field"><label for="corteRefeicaoFim">Refeição (fim)</label><input type="time" id="corteRefeicaoFim" onchange="AppOS.atualizarTotais()"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <div class="os-bottom-actions" style="margin-top: 18px;">
+            <button class="btn" type="reset">Cancelar</button>
+            <button class="btn btn-accent" type="button" onclick="AppOS.salvarOrdem()">Salvar Ordem</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const AppOS = {
+    marcarConcluida() {
+        const badge = document.getElementById("statusBadge");
+        badge.textContent = "Concluída";
+        badge.style.background = "#16a34a";
+    },
+    timeToMinutes(value) {
+        if (!value) return null;
+        const [h, m] = value.split(":").map(Number);
+        return (h * 60) + m;
+    },
+    calcularTotalLiquido(inicioId, fimId, refInicioId, refFimId) {
+        const inicio = this.timeToMinutes(document.getElementById(inicioId).value);
+        const fim = this.timeToMinutes(document.getElementById(fimId).value);
+        const refInicio = this.timeToMinutes(document.getElementById(refInicioId).value);
+        const refFim = this.timeToMinutes(document.getElementById(refFimId).value);
+        if (inicio === null || fim === null) return null;
+        let total = fim - inicio;
+        if (total < 0) total += 24 * 60;
+        if (refInicio !== null && refFim !== null) {
+            let refeicao = refFim - refInicio;
+            if (refeicao < 0) refeicao += 24 * 60;
+            total -= refeicao;
+        }
+        if (total < 0) total = 0;
+        return total;
+    },
+    formatarMinutos(totalMin) {
+        if (totalMin === null) return "—";
+        const horas = Math.floor(totalMin / 60);
+        const minutos = totalMin % 60;
+        return `${horas}h ${String(minutos).padStart(2, "0")}min`;
+    },
+    atualizarTotais() {
+        const desbaste = this.calcularTotalLiquido("desbasteHoraInicial", "desbasteHoraFinal", "desbasteRefeicaoInicio", "desbasteRefeicaoFim");
+        const laminador = this.calcularTotalLiquido("laminadorHoraInicial", "laminadorHoraFinal", "laminadorRefeicaoInicio", "laminadorRefeicaoFim");
+        const corte = this.calcularTotalLiquido("corteHoraInicial", "corteHoraFinal", "corteRefeicaoInicio", "corteRefeicaoFim");
+        document.getElementById("totalDesbaste").textContent = `Total: ${this.formatarMinutos(desbaste)}`;
+        document.getElementById("totalLaminador").textContent = `Total: ${this.formatarMinutos(laminador)}`;
+        document.getElementById("totalCorte").textContent = `Total: ${this.formatarMinutos(corte)}`;
+    },
+    coletarDados() {
+        return {
+            numeroOrdem: document.getElementById("numeroOrdem").value,
+            cliente: document.getElementById("cliente").value,
+            tipoPlacas: document.getElementById("tipoPlacas").value,
+            pedacos: document.getElementById("pedacos").value,
+            placas: document.getElementById("placas").value,
+            desbasteTexto: document.getElementById("desbasteTexto").value,
+            corteTexto: document.getElementById("corteTexto").value,
+            laminacaoTexto: document.getElementById("laminacaoTexto").value,
+            medida: document.getElementById("medida").value,
+            comprimento: document.getElementById("comprimento").value,
+            tempera: document.getElementById("tempera").value,
+            expedicaoInicio: document.getElementById("expedicaoInicio").value,
+            expedicaoFinal: document.getElementById("expedicaoFinal").value,
+            liquido: document.getElementById("liquido").value,
+            bruto: document.getElementById("bruto").value,
+            palete: document.getElementById("palete").value,
+            responsavel: document.getElementById("responsavel").value,
+            obs: document.getElementById("obs").value,
+            dataSaida: document.getElementById("dataSaida").value,
+            dataEntrada: document.getElementById("dataEntrada").value,
+            status: document.getElementById("statusBadge").textContent,
+            desbaste: {
+                maquina: document.getElementById("desbasteMaquina").value,
+                horaInicial: document.getElementById("desbasteHoraInicial").value,
+                horaFinal: document.getElementById("desbasteHoraFinal").value,
+                refeicaoInicio: document.getElementById("desbasteRefeicaoInicio").value,
+                refeicaoFim: document.getElementById("desbasteRefeicaoFim").value,
+                totalMin: this.calcularTotalLiquido("desbasteHoraInicial", "desbasteHoraFinal", "desbasteRefeicaoInicio", "desbasteRefeicaoFim")
+            },
+            laminador: {
+                numero: document.getElementById("laminadorNumero").value,
+                horaInicial: document.getElementById("laminadorHoraInicial").value,
+                horaFinal: document.getElementById("laminadorHoraFinal").value,
+                refeicaoInicio: document.getElementById("laminadorRefeicaoInicio").value,
+                refeicaoFim: document.getElementById("laminadorRefeicaoFim").value,
+                totalMin: this.calcularTotalLiquido("laminadorHoraInicial", "laminadorHoraFinal", "laminadorRefeicaoInicio", "laminadorRefeicaoFim")
+            },
+            corte: {
+                maquina: document.getElementById("corteMaquina").value,
+                horaInicial: document.getElementById("corteHoraInicial").value,
+                horaFinal: document.getElementById("corteHoraFinal").value,
+                refeicaoInicio: document.getElementById("corteRefeicaoInicio").value,
+                refeicaoFim: document.getElementById("corteRefeicaoFim").value,
+                totalMin: this.calcularTotalLiquido("corteHoraInicial", "corteHoraFinal", "corteRefeicaoInicio", "corteRefeicaoFim")
+            }
+        };
+    },
+    salvarOrdem() {
+        this.atualizarTotais();
+        const dados = this.coletarDados();
+        const ordens = JSON.parse(localStorage.getItem("mega_ordens_servico")) || [];
+        ordens.push(dados);
+        localStorage.setItem("mega_ordens_servico", JSON.stringify(ordens));
+        alert("Ordem salva com sucesso.");
+    }
+};
+document.addEventListener("DOMContentLoaded", () => {
+    const hoje = new Date().toISOString().split("T")[0];
+    const dataEntrada = document.getElementById("dataEntrada");
+    if (dataEntrada && !dataEntrada.value) dataEntrada.value = hoje;
+    AppOS.atualizarTotais();
+});
+</script>
+{% endblock %}

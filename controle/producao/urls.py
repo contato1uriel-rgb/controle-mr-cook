@@ -1,0 +1,41 @@
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("mega/", views.mega, name="mega"),
+    path("mega/ordem-servico/", views.ordem_servico_mega, name="ordem_servico_mega"),
+    path("pcp/", views.pcp, name="pcp"),
+    path("pcp/discos/", views.discos, name="discos"),
+    path("pcp/discos/pedidos/", views.discos_pedidos, name="discos_pedidos"),
+    path("pcp/discos/dados/", views.dados_discos, name="dados_discos"),
+    path("pcp/dados-filtragem/", views.dados_filtragem, name="dados_filtragem"),
+    path("pcp/import-mrp/", views.pcp_import_mrp, name="pcp_import_mrp"),
+    path("pcp/import-estoque/", views.pcp_import_estoque, name="pcp_import_estoque"),
+    path("operacoes/importacao/", views.operacoes_importacao, name="operacoes_importacao"),
+    path("", views.home, name="home"),
+    path("relacoes/", views.relacoes, name="relacoes"),
+    path("relacoes/visao-geral/", views.relacoes_visao_geral, name="relacoes_visao_geral"),
+    path("relacoes/odfs-movimentar/", views.odfs_movimentar, name="odfs_movimentar"),
+    path("necessidades-carcacas/", views.necessidades_carcacas, name="necessidades_carcacas"),
+    path("comprar/", views.comprar, name="comprar"),
+    path("api/relacoes-compras/", views.api_relacoes_compras, name="api_relacoes_compras"),
+    path("api/estoque-carcacas/", views.api_estoque_carcacas_json, name="api_estoque_carcacas_json"),
+    path("relacoes/<int:relacao_id>/renomear/", views.relacao_renomear, name="relacao_renomear"),
+    path("relacoes/<int:relacao_id>/excluir/", views.relacao_excluir, name="relacao_excluir"),
+    path("relacoes/<int:relacao_id>/", views.relacao_detalhe, name="relacao_detalhe"),
+    path("relacoes/<int:relacao_id>/item/<int:item_id>/toggle-ok/", views.relacao_item_toggle_ok, name="relacao_item_toggle_ok"),
+    path("relacoes/<int:relacao_id>/item/<int:item_id>/delete/", views.relacao_item_delete, name="relacao_item_delete"),
+    path("distribuir/", views.distribuir_operacao, name="distribuir_operacao"),
+    path("distribuir/imprimir/", views.distribuir_imprimir, name="distribuir_imprimir"),
+    path("configurar-distribuicao/", views.configurar_distribuicao, name="configurar_distribuicao"),
+    path("pintura-epox/", views.pintura_epox, name="pintura_epox"),
+    path("controle-producao/", views.controle_producao_login, name="controle_producao_login"),
+    path("controle-producao/cacarolas/", views.controle_producao_cacarolas, name="controle_producao_cacarolas"),
+    path("produtos/", views.lista_produtos, name="lista_produtos"),
+    path("produtos/novo/", views.novo_produto, name="novo_produto"),
+    path("ordens/", views.lista_ordens, name="lista_ordens"),
+    path("ordens/nova/", views.nova_ordem, name="nova_ordem"),
+    path("ordens/<int:pk>/status/", views.atualizar_status_ordem, name="atualizar_status_ordem"),
+]
+

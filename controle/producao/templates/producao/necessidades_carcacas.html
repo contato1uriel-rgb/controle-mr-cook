@@ -1,0 +1,1258 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Necessidades de Carcacas • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Necessidades de Carcacas{% endblock %}
+{% block breadcrumb %}Operacoes{% endblock %}
+{% block page_heading %}Necessidades de Carcacas{% endblock %}
+{% block page_heading_meta %}Relacoes filtradas + dados (Excel){% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+    /* Necessidades deve ficar com destaque laranja */
+    :root {
+        --accent: #f59e0b;
+        --accent-hot: #fbbf24;
+        --accent-2: #fb923c;
+        --accent-purple: #f59e0b;
+        --accent-purple-dim: rgba(249, 115, 22, 0.35);
+        --accent-dim: rgba(249, 115, 22, 0.14);
+        --border: rgba(249, 115, 22, 0.16);
+        --border-bright: rgba(249, 115, 22, 0.45);
+        --focus: rgba(249, 115, 22, 0.55);
+        --accent-light: #fbbf24;
+    }
+
+    .cp-box {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 18px 20px;
+        background: var(--surface);
+        box-shadow: var(--shadow-card);
+    }
+
+    .cp-grid { display: grid; gap: 12px; }
+    .cp-grid-2 { grid-template-columns: 1fr 1fr; }
+    .cp-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    .cp-label {
+        font-size: 11px;
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .cp-section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 12px;
+        font-family: var(--font-ui);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .cp-section-title::before {
+        content: "";
+        width: 20px;
+        height: 2px;
+        background: var(--accent-light);
+    }
+
+    .cp-help {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.45;
+    }
+
+    .cp-toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: end;
+        justify-content: space-between;
+        margin-top: 12px;
+    }
+
+    .cp-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .cp-box input,
+    .cp-box select,
+    .cp-box textarea,
+    .cp-box button {
+        font-family: var(--font-body);
+    }
+
+    .cp-box input,
+    .cp-box select,
+    .cp-box textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        padding: 11px 14px;
+    }
+
+    .cp-box input:focus-visible,
+    .cp-box select:focus-visible,
+    .cp-box textarea:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 0;
+        border-color: var(--accent-light);
+        box-shadow: 0 0 0 1px rgba(92, 61, 46, 0.08);
+    }
+
+    .cp-table-wrap {
+        overflow-x: auto;
+        margin-top: 12px;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-card);
+        background: var(--surface);
+    }
+    .cp-table-wrap--fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 1300;
+        margin-top: 0;
+        border-radius: 0;
+        border: 0;
+        background: var(--surface);
+        box-shadow: none;
+        padding-top: 58px;
+        overflow: auto;
+    }
+    .cp-table-wrap--fullscreen .cp-table {
+        min-width: 1200px;
+    }
+    .cp-table-fullscreen-topbar {
+        display: none;
+    }
+    .cp-table-wrap--fullscreen .cp-table-fullscreen-topbar {
+        display: flex;
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        overflow: visible;
+    }
+    .cp-table-fullscreen-topbar input {
+        min-width: 220px;
+        max-width: 360px;
+        width: 35vw;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        padding: 9px 12px;
+    }
+    .cp-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        position: relative;
+        z-index: 60;
+    }
+    .cp-mini-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        width: min(360px, 92vw);
+        max-height: 70vh;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #0f1118;
+        box-shadow: var(--shadow-card);
+        padding: 8px 8px 6px;
+        z-index: 120;
+    }
+    .cp-mini-menu.is-open { display: block; }
+    .cp-mini-menu input[type="text"] {
+        width: 100%;
+        margin: 0;
+        padding: 7px 10px;
+        font-size: 0.8rem;
+    }
+    .cp-mini-menu .pill-row {
+        margin-top: 6px;
+        gap: 6px;
+    }
+    .cp-mini-menu .pill-row .btn {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        border-radius: 8px;
+    }
+    .cp-mini-menu__list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2px;
+        margin-top: 6px;
+        max-height: 46vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .cp-mini-menu__list label {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: var(--surface-2);
+        font-size: 0.78rem;
+        line-height: 1.25;
+        color: var(--text);
+        min-height: 0;
+        cursor: pointer;
+    }
+    .cp-mini-menu__list label input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        flex-shrink: 0;
+    }
+    .cp-mini-menu__list label span {
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: left;
+    }
+    .cp-mini-menu__list label:hover { border-color: var(--border); }
+    .cp-table-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1290;
+        background: rgba(0, 0, 0, 0.56);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+    }
+    .cp-table-overlay.is-visible {
+        display: block;
+    }
+    body.needs-fullscreen .sidebar,
+    body.needs-fullscreen .app-topbar,
+    body.needs-fullscreen .footer,
+    body.needs-fullscreen .workspace-deco {
+        display: none !important;
+    }
+    body.needs-fullscreen .workspace {
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .cp-table { width: 100%; border-collapse: collapse; }
+    .cp-table th, .cp-table td {
+        padding: 11px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        text-align: left;
+        font-size: 0.86rem;
+        white-space: nowrap;
+    }
+    .cp-table tr.cp-row--negativo td {
+        background: rgba(220, 38, 38, 0.18);
+        border-bottom-color: rgba(220, 38, 38, 0.38);
+    }
+    .cp-table tr.cp-row--negativo td:last-child {
+        color: #fecaca;
+        font-weight: 700;
+    }
+
+    .cp-table th {
+        font-family: var(--font-ui);
+        color: var(--accent);
+        font-weight: 700;
+        background: var(--surface-2);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+    }
+
+    .cp-empty { color: var(--muted); padding: 10px 0 0; }
+
+    .rel-list {
+        max-height: 360px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: var(--surface-2);
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+        gap: 8px;
+    }
+
+    .rel-list label {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-family: var(--font-ui);
+        font-size: 0.82rem;
+        color: var(--text);
+    }
+
+    .rel-list label input { width: 16px; height: 16px; }
+    .rel-list label:hover { border-color: var(--border); background: rgba(255,255,255,0.02); }
+
+    .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .pill-row button { white-space: nowrap; }
+    @media (max-width: 760px) {
+        .cp-grid-2 { grid-template-columns: 1fr; }
+        .rel-list { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cp-box" style="margin-top: 14px;">
+    <div class="cp-section-title">1) Selecione as relacoes</div>
+    <div class="cp-help">
+        Marque uma ou mais relacoes para gerar a tabela de necessidades de carcaca.
+        A filtragem usa a comparacao do <b>Cod_Interno</b> no arquivo <b>dados</b>.
+    </div>
+    <div class="pill-row" style="margin-top: 12px;">
+        <button type="button" class="btn btn-accent" id="expandTableBtnTop" onclick="App.toggleTabelaExpandida()">Expandir tabela</button>
+        <button type="button" class="btn" onclick="App.selecionarTudo()">Selecionar tudo</button>
+        <button type="button" class="btn" onclick="App.limparSelecao()">Limpar selecao</button>
+    </div>
+    <div class="rel-list" id="relacoesChecks" style="margin-top: 12px;"></div>
+    <div class="cp-help" id="relacoesStatus" style="margin-top: 10px;"></div>
+    <div class="cp-help" id="diagStatus" style="margin-top: 6px;"></div>
+</div>
+
+<div class="cp-box" style="margin-top: 14px;">
+    <div class="cp-section-title">2) Dados (Excel -> localStorage)</div>
+    <div class="cp-grid cp-grid-2">
+        <div>
+            <label class="cp-label">Cadastrar base de dados (Excel)</label>
+            <input id="dadosFileInput" type="file" accept=".xlsx,.xls" onchange="App.importarDadosExcel(event)" style="display:none;">
+            <div class="cp-help">
+                Procura a planilha <b>dados</b> (ou a primeira). Colunas na ordem:
+                <b>Cod_Interno</b>, <b>Descricao_Produto</b>, <b>Cód.Acessório</b>, <b>Descricao_Acessório</b>, <b>Fator</b>,
+                <b>Codigo_Disco/chapa</b>, <b>Descricao_Disco/chapa</b>, <b>Codigo_Disco/chapa1</b>, <b>Descricao_Disco/chapa1</b>.
+            </div>
+        </div>
+        <div>
+            <label class="cp-label">Ações da base</label>
+            <div class="pill-row">
+                <button type="button" class="btn btn-accent" onclick="App.abrirArquivoDados()">Adicionar dados ao site</button>
+                <button type="button" class="btn" onclick="App.abrirArquivoEstoque()">Adicionar estoque</button>
+                <button type="button" class="btn" onclick="App.removerDados()">Remover dados</button>
+            </div>
+            <div class="cp-help" id="dadosStatus" style="margin-top: 10px;"></div>
+            <input id="estoqueFileInput" type="file" accept=".xlsx,.xls" onchange="App.importarEstoqueExcel(event)" style="display:none;">
+            <div class="cp-help" id="estoqueStatus" style="margin-top: 6px;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="cp-box" style="margin-top: 14px;">
+    <div class="cp-section-title">3) Tabela de necessidades</div>
+    <div class="cp-help" style="margin-bottom:10px;">
+        Com estoque importado em <b>Adicionar estoque</b>, use as impressões abaixo: <b>Produção</b> lista faltas ligadas a
+        <b>carcaça</b> ou <b>discos/chapas</b> (códigos ou descrições). O restante dos itens em falta vai em <b>Almoxarifado</b>.
+        A escolha da impressora é sempre na janela do sistema (o navegador não lista impressoras).
+    </div>
+    <div class="pill-row">
+        <button type="button" class="btn" id="expandTableBtn" onclick="App.toggleTabelaExpandida()">Expandir tabela</button>
+        <button type="button" class="btn btn-accent" onclick="App.baixarExcelCompleto()">Baixar Excel (tabela)</button>
+        <button type="button" class="btn btn-accent" onclick="App.imprimirNecessidadesProducao()">Imprimir — Necessidades Produção</button>
+        <button type="button" class="btn" onclick="App.imprimirNecessidadesAlmox()">Imprimir — Necessidades Almoxarifado</button>
+    </div>
+    <div class="cp-table-overlay" id="tableOverlay" onclick="App.toggleTabelaExpandida(false)"></div>
+    <div class="cp-table-wrap" id="needsTableWrap">
+        <div class="cp-table-fullscreen-topbar">
+            <button type="button" class="btn btn-accent" onclick="App.toggleTabelaExpandida(false)">Voltar</button>
+            <span class="cp-help" style="margin:0;">Visualização expandida</span>
+            <button type="button" class="btn" id="negativosOnlyBtn" onclick="App.toggleSomenteNegativos()">Somente negativos: OFF</button>
+            <div class="cp-topbar-actions">
+                <button type="button" class="btn" id="toggleRelacoesMenuBtn" onclick="App.toggleRelacoesMenu()">Filtrar relações</button>
+                <div class="cp-mini-menu" id="relacoesMiniMenu">
+                    <input id="relacoesMenuBusca" type="text" placeholder="Buscar relação..." oninput="App.filtrarRelacoesMenu(this.value)">
+                    <div class="pill-row" style="margin-top:8px;">
+                        <button type="button" class="btn" onclick="App.selecionarTudo()">Selecionar tudo</button>
+                        <button type="button" class="btn" onclick="App.limparSelecao()">Limpar filtros</button>
+                    </div>
+                    <div class="cp-mini-menu__list" id="relacoesMenuList"></div>
+                </div>
+            </div>
+        </div>
+        <table class="cp-table" aria-label="Tabela de necessidades de carcaca">
+            <thead>
+                <tr id="needsHeader"></tr>
+            </thead>
+            <tbody id="needsBody"></tbody>
+        </table>
+    </div>
+    <div id="needsVazio" class="cp-empty" style="display:none;">Selecione relacoes e importe o Excel de dados para gerar a tabela.</div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
+    const App = {
+        STORAGE_KEY: "cmc_dados_carcacas_v1",
+        RELACOES: {{ relacoes_json|safe }},
+        DATA_COLS: [
+            "Cod_Interno",
+            "Descrição_Produto",
+            "Cód.Acessório",
+            "Descrição_Acessório",
+            "Fator",
+            "Codigo_Disco/chapa",
+            "Descrição_Disco/chapa",
+            "Codigo_Disco/chapa1",
+            "Descrição_Disco/chapa1",
+        ],
+        NEEDS_COLS: [
+            "Cod_Interno",
+            "Descrição_Produto",
+            "Cód.Acessório",
+            "Descrição_Acessório",
+            "Fator",
+            "Codigo_Disco/chapa",
+            "Descrição_Disco/chapa",
+            "Codigo_Disco/chapa1",
+            "Descrição_Disco/chapa1",
+            "Quantidade",
+            "Estoque",
+            "Saldo",
+        ],
+        state: {
+            dados: [],
+            needs: [],
+            selectedIds: [],
+            tabelaExpandida: false,
+            estoqueMap: {},
+            somenteNegativos: false,
+        },
+
+        init() {
+            this.renderRelacoes();
+            this.renderRelacoesMenuExpandido();
+            this.loadDados();
+            this.renderNeedsHeader();
+            this.selecionarTudo();
+            this.updateRelacoesStatus();
+        },
+
+        normalizeText(t) {
+            return String(t ?? "")
+                .trim()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase();
+        },
+
+        normalizeCode(t) {
+            return String(t ?? "").trim();
+        },
+
+        normalizeCodeKey(t) {
+            const raw = this.normalizeCode(t);
+            if (!raw) return "";
+            const onlyDigits = raw.replace(/\D/g, "");
+            if (onlyDigits) {
+                // Uniformiza 002597, 2597, 0002597 -> 2597
+                const n = String(parseInt(onlyDigits, 10));
+                return n === "NaN" ? onlyDigits : n;
+            }
+            // Fallback para códigos alfanuméricos
+            return raw.replace(/\s+/g, "").toUpperCase();
+        },
+
+        toNumber(t) {
+            if (t === null || t === undefined) return 0;
+            const s = String(t).trim();
+            if (!s) return 0;
+            const hasComma = s.includes(",");
+            const hasDot = s.includes(".");
+            // heuristica: "1.234,56" -> "1234.56"
+            let normalized = s.replace(/\s/g, "");
+            if (hasComma && hasDot) {
+                normalized = normalized.replace(/\./g, "").replace(",", ".");
+            } else if (hasComma) {
+                normalized = normalized.replace(",", ".");
+            }
+            const n = Number(normalized);
+            return Number.isFinite(n) ? n : 0;
+        },
+
+        abrirArquivoDados() {
+            const input = document.getElementById("dadosFileInput");
+            if (input) input.click();
+        },
+
+        abrirArquivoEstoque() {
+            const input = document.getElementById("estoqueFileInput");
+            if (input) input.click();
+        },
+
+        loadDados() {
+            try {
+                const raw = localStorage.getItem(this.STORAGE_KEY) || "[]";
+                const parsed = JSON.parse(raw);
+                this.state.dados = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                this.state.dados = [];
+            }
+            try {
+                const rawEstoque = localStorage.getItem("cmc_estoque_carcacas_v1") || "{}";
+                const parsedEstoque = JSON.parse(rawEstoque);
+                this.state.estoqueMap = parsedEstoque && typeof parsedEstoque === "object" ? parsedEstoque : {};
+            } catch (e) {
+                this.state.estoqueMap = {};
+            }
+            const srv =
+                typeof window.__CMC_ESTOQUE_SERVIDOR__ !== "undefined" &&
+                window.__CMC_ESTOQUE_SERVIDOR__ &&
+                typeof window.__CMC_ESTOQUE_SERVIDOR__ === "object"
+                    ? window.__CMC_ESTOQUE_SERVIDOR__
+                    : null;
+            if (srv && Object.keys(srv).length) {
+                this.state.estoqueMap = { ...srv };
+                try {
+                    localStorage.setItem("cmc_estoque_carcacas_v1", JSON.stringify(this.state.estoqueMap));
+                } catch (e2) {}
+            }
+            this.updateDadosStatus();
+        },
+
+        _getCsrfToken() {
+            const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+            return m ? decodeURIComponent(m[2].trim()) : "";
+        },
+
+        _syncEstoqueServidor(file) {
+            if (!file) return;
+            const fd = new FormData();
+            fd.append("estoque", file);
+            const tok = this._getCsrfToken();
+            fetch("{% url 'pcp_import_estoque' %}", {
+                method: "POST",
+                headers: tok ? { "X-CSRFToken": tok } : {},
+                body: fd,
+                credentials: "same-origin",
+            }).catch(function () {});
+        },
+
+        removerDados() {
+            localStorage.removeItem(this.STORAGE_KEY);
+            localStorage.removeItem("cmc_estoque_carcacas_v1");
+            this.state.dados = [];
+            this.state.estoqueMap = {};
+            this.state.needs = [];
+            document.getElementById("needsVazio").style.display = "block";
+            this.updateDadosStatus();
+            this.renderNeedsBody();
+        },
+
+        updateDadosStatus() {
+            const el = document.getElementById("dadosStatus");
+            const n = this.state.dados.length;
+            el.textContent = n
+                ? `Dados carregados: ${n} linha(s).`
+                : "Nenhum dado carregado ainda. Importe o Excel na etapa 2.";
+            const elEst = document.getElementById("estoqueStatus");
+            if (elEst) {
+                const estCount = Object.keys(this.state.estoqueMap || {}).length;
+                elEst.textContent = estCount
+                    ? `Estoque carregado: ${estCount} item(ns).`
+                    : "Nenhum estoque carregado ainda.";
+            }
+            this.atualizarTabela();
+        },
+
+        renderRelacoes() {
+            const wrap = document.getElementById("relacoesChecks");
+            wrap.innerHTML = "";
+
+            const rels = this.RELACOES || [];
+            if (!rels.length) {
+                wrap.innerHTML = "<div class='cp-empty'>Nenhuma relacao encontrada.</div>";
+                return;
+            }
+
+            rels.forEach(rel => {
+                const label = document.createElement("label");
+                label.innerHTML = `
+                    <input type="checkbox" value="${rel.id}" data-rel-id="${rel.id}" onchange="App.updateRelacoesStatus()">
+                    <span>${rel.nome || "Sem nome"}</span>
+                `;
+                wrap.appendChild(label);
+            });
+        },
+
+        renderRelacoesMenuExpandido() {
+            const wrap = document.getElementById("relacoesMenuList");
+            if (!wrap) return;
+            wrap.innerHTML = "";
+            const rels = this.RELACOES || [];
+            if (!rels.length) {
+                wrap.innerHTML = "<div class='cp-empty'>Nenhuma relação encontrada.</div>";
+                return;
+            }
+            rels.forEach(rel => {
+                const label = document.createElement("label");
+                label.setAttribute("data-rel-name", this.normalizeText(rel.nome || ""));
+                label.innerHTML = `
+                    <input type="checkbox" value="${rel.id}" data-rel-id-menu="${rel.id}" onchange="App.toggleRelacaoPorMenu(this)">
+                    <span>${rel.nome || "Sem nome"}</span>
+                `;
+                wrap.appendChild(label);
+            });
+        },
+
+        toggleRelacaoPorMenu(input) {
+            const id = String(input.value);
+            const base = document.querySelector(`#relacoesChecks input[data-rel-id="${id}"]`);
+            if (base) base.checked = !!input.checked;
+            this.updateRelacoesStatus();
+        },
+
+        updateRelacoesStatus() {
+            this.state.selectedIds = this.getSelectedIds();
+            const el = document.getElementById("relacoesStatus");
+            el.textContent = this.state.selectedIds.length
+                ? `Relacoes selecionadas: ${this.state.selectedIds.length}.`
+                : "Nenhuma relacao selecionada.";
+            this.syncRelacoesMenuChecks();
+            this.atualizarTabela();
+        },
+
+        selecionarTudo() {
+            const checks = document.querySelectorAll("#relacoesChecks input[type='checkbox']");
+            checks.forEach(c => c.checked = true);
+            this.updateRelacoesStatus();
+        },
+
+        limparSelecao() {
+            const checks = document.querySelectorAll("#relacoesChecks input[type='checkbox']");
+            checks.forEach(c => c.checked = false);
+            this.updateRelacoesStatus();
+        },
+
+        getSelectedIds() {
+            return Array.from(document.querySelectorAll("#relacoesChecks input[type='checkbox']:checked"))
+                .map(x => Number(x.value))
+                .filter(x => Number.isFinite(x));
+        },
+
+        syncRelacoesMenuChecks() {
+            const selectedSet = new Set(this.state.selectedIds.map(String));
+            const menuChecks = document.querySelectorAll("#relacoesMenuList input[data-rel-id-menu]");
+            menuChecks.forEach(c => { c.checked = selectedSet.has(String(c.value)); });
+        },
+
+        renderNeedsHeader() {
+            const tr = document.getElementById("needsHeader");
+            tr.innerHTML = "";
+            this.NEEDS_COLS.forEach(col => {
+                const th = document.createElement("th");
+                th.textContent = col;
+                tr.appendChild(th);
+            });
+        },
+
+        toggleTabelaExpandida(force) {
+            const wrap = document.getElementById("needsTableWrap");
+            const overlay = document.getElementById("tableOverlay");
+            const btn = document.getElementById("expandTableBtn");
+            const btnTop = document.getElementById("expandTableBtnTop");
+            if (!wrap || !overlay || !btn) return;
+
+            const next = typeof force === "boolean" ? force : !this.state.tabelaExpandida;
+            this.state.tabelaExpandida = next;
+            wrap.classList.toggle("cp-table-wrap--fullscreen", next);
+            overlay.classList.toggle("is-visible", next);
+            btn.textContent = next ? "Fechar expansão" : "Expandir tabela";
+            if (btnTop) btnTop.textContent = next ? "Fechar expansão" : "Expandir tabela";
+            document.body.style.overflow = next ? "hidden" : "";
+            document.body.classList.toggle("needs-fullscreen", next);
+
+            if (next && wrap.requestFullscreen) {
+                wrap.requestFullscreen().catch(() => {});
+            } else if (!next && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        },
+
+        toggleRelacoesMenu(force) {
+            const menu = document.getElementById("relacoesMiniMenu");
+            if (!menu) return;
+            const next = typeof force === "boolean" ? force : !menu.classList.contains("is-open");
+            menu.classList.toggle("is-open", next);
+            if (next) {
+                // Sempre recarrega os nomes para evitar menu vazio por estado antigo.
+                this.renderRelacoesMenuExpandido();
+                this.syncRelacoesMenuChecks();
+                const busca = document.getElementById("relacoesMenuBusca");
+                if (busca) {
+                    busca.value = "";
+                    busca.focus();
+                }
+                this.filtrarRelacoesMenu("");
+            }
+        },
+
+        filtrarRelacoesMenu(term) {
+            const t = this.normalizeText(term);
+            const labels = document.querySelectorAll("#relacoesMenuList label");
+            labels.forEach(label => {
+                const nm = label.getAttribute("data-rel-name") || "";
+                label.style.display = (!t || nm.includes(t)) ? "" : "none";
+            });
+        },
+
+        toggleSomenteNegativos() {
+            this.state.somenteNegativos = !this.state.somenteNegativos;
+            const btn = document.getElementById("negativosOnlyBtn");
+            if (btn) btn.textContent = `Somente negativos: ${this.state.somenteNegativos ? "ON" : "OFF"}`;
+            this.renderNeedsBody();
+        },
+
+        importarDadosExcel(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = evt => {
+                const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
+                if (!wb.SheetNames.length) {
+                    alert("Nao foi possivel ler a planilha do Excel.");
+                    return;
+                }
+                const byPosition = {
+                    "Cod_Interno": 0,
+                    "Descrição_Produto": 1,
+                    "Cód.Acessório": 2,
+                    "Descrição_Acessório": 3,
+                    "Fator": 4,
+                    "Codigo_Disco/chapa": 5,
+                    "Descrição_Disco/chapa": 6,
+                    "Codigo_Disco/chapa1": 7,
+                    "Descrição_Disco/chapa1": 8,
+                };
+
+                const parseRows = (rows) => {
+                    if (!rows || !rows.length) return { parsed: [], score: -1, sheetInfo: "vazia" };
+
+                    const headers = (rows[0] || []).map(h => String(h ?? "").trim());
+                    const headersNorm = headers.map(h => this.normalizeText(h));
+                    const firstDataProbe = (rows[1] || rows[0] || []).map(v => String(v ?? "").trim());
+
+                    const findIdx = (pred) => {
+                        for (let i = 0; i < headersNorm.length; i++) {
+                            const h = headersNorm[i];
+                            if (pred(h)) return i;
+                        }
+                        return -1;
+                    };
+
+                    const idx = {
+                        "Cod_Interno": findIdx(h => h.includes("cod") && h.includes("interno")),
+                        "Descrição_Produto": findIdx(h => h.includes("descricao") && h.includes("produto")),
+                        "Cód.Acessório": findIdx(h => h.includes("cod") && h.includes("acessor")),
+                        "Descrição_Acessório": findIdx(h => h.includes("descricao") && h.includes("acessor")),
+                        "Fator": findIdx(h => h === "fator" || h.includes("fator")),
+                        "Codigo_Disco/chapa": findIdx(h => h.includes("codigo") && h.includes("disco") && h.includes("chapa") && !h.includes("chapa1")),
+                        "Descrição_Disco/chapa": findIdx(h => h.includes("descricao") && h.includes("disco") && h.includes("chapa") && !h.includes("chapa1")),
+                        "Codigo_Disco/chapa1": findIdx(h => h.includes("codigo") && h.includes("disco") && h.includes("chapa1")),
+                        "Descrição_Disco/chapa1": findIdx(h => h.includes("descricao") && h.includes("disco") && h.includes("chapa1")),
+                    };
+
+                    const namedHits = this.DATA_COLS.filter(k => idx[k] !== -1).length;
+                    const hasNineCols = headers.length >= 9 || firstDataProbe.length >= 9;
+
+                    let effectiveIdx = { ...idx };
+                    let startRow = 1;
+                    let mode = "header";
+
+                    if (namedHits < 4) {
+                        if (!hasNineCols) return { parsed: [], score: -1, sheetInfo: "sem 9 colunas" };
+                        effectiveIdx = { ...byPosition };
+                        // Se a 1a linha parece cabecalho, começa na 2a; senao começa na 1a.
+                        const firstRowLooksHeader = headersNorm.some(h =>
+                            h.includes("cod") || h.includes("descr") || h.includes("acess") || h.includes("fator") || h.includes("disco") || h.includes("chapa")
+                        );
+                        startRow = firstRowLooksHeader ? 1 : 0;
+                        mode = "posicional";
+                    } else {
+                        // Completa as colunas faltantes por posicao.
+                        this.DATA_COLS.forEach((k, i) => {
+                            if (effectiveIdx[k] === -1) effectiveIdx[k] = i;
+                        });
+                    }
+
+                    const parsed = [];
+                    for (let r = startRow; r < rows.length; r++) {
+                        const row = rows[r] || [];
+                        const isEmpty = this.DATA_COLS.every(k => String(row[effectiveIdx[k]] ?? "").trim() === "");
+                        if (isEmpty) continue;
+
+                        parsed.push({
+                            "Cod_Interno": String(row[effectiveIdx["Cod_Interno"]] ?? "").trim(),
+                            "Descrição_Produto": String(row[effectiveIdx["Descrição_Produto"]] ?? "").trim(),
+                            "Cód.Acessório": String(row[effectiveIdx["Cód.Acessório"]] ?? "").trim(),
+                            "Descrição_Acessório": String(row[effectiveIdx["Descrição_Acessório"]] ?? "").trim(),
+                            "Fator": (() => {
+                                const s = String(row[effectiveIdx["Fator"]] ?? "").trim();
+                                if (!s) return "";
+                                const n = this.toNumber(s);
+                                return n === 0 && s !== "0" ? s : n;
+                            })(),
+                            "Codigo_Disco/chapa": String(row[effectiveIdx["Codigo_Disco/chapa"]] ?? "").trim(),
+                            "Descrição_Disco/chapa": String(row[effectiveIdx["Descrição_Disco/chapa"]] ?? "").trim(),
+                            "Codigo_Disco/chapa1": String(row[effectiveIdx["Codigo_Disco/chapa1"]] ?? "").trim(),
+                            "Descrição_Disco/chapa1": String(row[effectiveIdx["Descrição_Disco/chapa1"]] ?? "").trim(),
+                        });
+                    }
+
+                    // score prioriza acerto de colunas + quantidade de linhas válidas
+                    const score = (namedHits * 1000) + parsed.length;
+                    return { parsed, score, sheetInfo: `${mode}; acertos:${namedHits}; linhas:${parsed.length}` };
+                };
+
+                let best = { parsed: [], score: -1, sheet: "", sheetInfo: "" };
+                wb.SheetNames.forEach(name => {
+                    const ws = wb.Sheets[name];
+                    if (!ws) return;
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                    const res = parseRows(rows);
+                    if (res.score > best.score) {
+                        best = { ...res, sheet: name };
+                    }
+                });
+
+                const parsed = best.parsed;
+                if (!parsed.length) {
+                    alert(
+                        "Nao consegui identificar os dados no arquivo.\n" +
+                        "Verifique se existe uma aba com as 9 colunas esperadas (A ate I)."
+                    );
+                    return;
+                }
+
+                this.state.dados = parsed;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state.dados));
+                this.updateDadosStatus();
+                const status = document.getElementById("dadosStatus");
+                status.textContent = `Dados carregados: ${parsed.length} linha(s), aba utilizada: ${best.sheet}.`;
+                this.atualizarTabela();
+            };
+
+            reader.readAsArrayBuffer(file);
+        },
+
+        importarEstoqueExcel(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = evt => {
+                const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
+                if (!wb.SheetNames.length) {
+                    alert("Nao foi possivel ler o arquivo de estoque.");
+                    return;
+                }
+
+                const estoqueMap = {};
+                wb.SheetNames.forEach(sheetName => {
+                    const ws = wb.Sheets[sheetName];
+                    if (!ws) return;
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+                    let currentCode = "";
+                    let currentSaldo = null;
+                    rows.forEach((row) => {
+                        const line = (row || []).map(c => String(c ?? "")).join(" ");
+
+                        // Ex.: Produto: 000003 - ...
+                        const mProd = line.match(/Produto:\s*([0-9A-Za-z]+)/i);
+                        if (mProd) {
+                            currentCode = this.normalizeCodeKey(mProd[1]);
+                            currentSaldo = null;
+                        }
+
+                        // Ex.: Saldo: 4892
+                        const mSaldo = line.match(/Saldo:\s*([0-9.,-]+)/i);
+                        if (mSaldo && currentCode) {
+                            currentSaldo = this.toNumber(mSaldo[1]);
+                            estoqueMap[currentCode] = (estoqueMap[currentCode] || 0) + currentSaldo;
+                        }
+
+                        // Fallback para casos de Sub-Total sem "Saldo"
+                        if (/Sub-Total/i.test(line) && currentCode && (currentSaldo === null || currentSaldo === 0)) {
+                            const nums = (row || [])
+                                .map(v => this.toNumber(v))
+                                .filter(v => Number.isFinite(v) && v > 0);
+                            if (nums.length) {
+                                const q = nums[nums.length - 1];
+                                estoqueMap[currentCode] = (estoqueMap[currentCode] || 0) + q;
+                            }
+                        }
+                    });
+                });
+
+                this.state.estoqueMap = estoqueMap;
+                localStorage.setItem("cmc_estoque_carcacas_v1", JSON.stringify(estoqueMap));
+                window.__CMC_ESTOQUE_SERVIDOR__ = estoqueMap;
+                this.updateDadosStatus();
+                this._syncEstoqueServidor(file);
+            };
+            reader.readAsArrayBuffer(file);
+        },
+
+        atualizarTabela() {
+            this.state.selectedIds = this.getSelectedIds();
+            if (!this.state.dados.length) {
+                document.getElementById("needsVazio").style.display = "block";
+                this.renderNeedsBody();
+                const diag = document.getElementById("diagStatus");
+                if (diag) diag.textContent = "Diagnóstico: nenhum dado importado.";
+                return;
+            }
+
+            const effectiveSelectedRelIds = this.state.selectedIds;
+            if (!effectiveSelectedRelIds.length) {
+                document.getElementById("needsVazio").style.display = "block";
+                this.state.needs = [];
+                this.renderNeedsBody();
+                const diag = document.getElementById("diagStatus");
+                if (diag) diag.textContent = "Diagnóstico: nenhuma relação selecionada.";
+                return;
+            }
+
+            // 1) Soma quantidades por Cod_Interno (produto na relacao)
+            const qtdPorProduto = {};
+            effectiveSelectedRelIds.forEach(relId => {
+                const rel = this.RELACOES.find(r => Number(r.id) === Number(relId));
+                if (!rel || !Array.isArray(rel.itens)) return;
+                rel.itens.forEach(it => {
+                    if (it && it.ok) return;
+                    const cod = this.normalizeCodeKey(it.codigo_produto);
+                    if (!cod || cod === "NaN") return;
+                    const q = this.toNumber(it.quantidade);
+                    qtdPorProduto[cod] = (qtdPorProduto[cod] || 0) + q;
+                });
+            });
+
+            // 2) Junta com dados (dados.Cod_Interno -> needs row)
+            const candidatos = [];
+            const semMatch = [];
+            Object.keys(qtdPorProduto).forEach(cod => {
+                const qtd = qtdPorProduto[cod];
+                let found = false;
+                this.state.dados.forEach(d => {
+                    if (this.normalizeCodeKey(d["Cod_Interno"]) !== cod) return;
+                    found = true;
+                    candidatos.push({ ...d, Quantidade: qtd });
+                });
+                if (!found) semMatch.push(cod);
+            });
+
+            // 3) Agrega duplicados (por campos da base de dados, somando Quantidade)
+            const group = new Map();
+            candidatos.forEach(r => {
+                const key = this.DATA_COLS.map(k => String(r[k] ?? "")).join("|");
+                if (!group.has(key)) {
+                    const copy = { ...r };
+                    copy.Quantidade = 0;
+                    group.set(key, copy);
+                }
+                const obj = group.get(key);
+                obj.Quantidade = obj.Quantidade + this.toNumber(r.Quantidade);
+            });
+
+            const needs = Array.from(group.values());
+            needs.sort((a, b) => {
+                const da = this.normalizeText(a["Descrição_Acessório"] || "");
+                const db = this.normalizeText(b["Descrição_Acessório"] || "");
+                return da.localeCompare(db, "pt-BR");
+            });
+
+            // 4) Cruza com estoque por código do acessório e calcula saldo
+            needs.forEach((r) => {
+                const codAcessorio = this.normalizeCodeKey(r["Cód.Acessório"]);
+                const estoque = Number(this.state.estoqueMap[codAcessorio] || 0);
+                const fator = this.toNumber(r["Fator"] || 0);
+                const qtdProdutos = this.toNumber(r["Quantidade"] || 0);
+                const necessidade = fator > 0 ? (qtdProdutos * fator) : qtdProdutos;
+                r["Quantidade"] = necessidade;
+                r["Estoque"] = estoque;
+                r["Saldo"] = estoque - necessidade;
+            });
+
+            this.state.needs = needs;
+            this.renderNeedsBody();
+            document.getElementById("needsVazio").style.display = needs.length ? "none" : "block";
+            const diag = document.getElementById("diagStatus");
+            if (diag) {
+                const codsRel = Object.keys(qtdPorProduto).length;
+                const sample = semMatch.slice(0, 8).join(", ");
+                diag.textContent = `Diagnóstico: códigos das relações=${codsRel}, linhas cadastro=${this.state.dados.length}, linhas geradas=${needs.length}, sem correspondência=${semMatch.length}${sample ? " (ex.: " + sample + ")" : ""}.`;
+            }
+        },
+
+        renderNeedsBody() {
+            const tbody = document.getElementById("needsBody");
+            tbody.innerHTML = "";
+            if (!this.state.needs.length) return;
+
+            const fmt = (v) => {
+                if (v === null || v === undefined) return "";
+                if (typeof v === "number") {
+                    // evita notacao cientifica em valores grandes pequenos
+                    return String(v);
+                }
+                return String(v);
+            };
+
+            const rows = this.state.somenteNegativos
+                ? this.state.needs.filter(r => this.toNumber(r["Saldo"] || 0) < 0)
+                : this.state.needs;
+            const empty = document.getElementById("needsVazio");
+            if (empty) {
+                empty.style.display = rows.length ? "none" : "block";
+                if (!rows.length && this.state.somenteNegativos) {
+                    empty.textContent = "Nao ha itens com saldo negativo no estoque para o filtro atual.";
+                } else if (!rows.length) {
+                    empty.textContent = "Selecione relacoes e importe o Excel de dados para gerar a tabela.";
+                }
+            }
+
+            rows.forEach(row => {
+                const tr = document.createElement("tr");
+                const saldo = this.toNumber(row["Saldo"] || 0);
+                if (saldo < 0) tr.classList.add("cp-row--negativo");
+                this.NEEDS_COLS.forEach(col => {
+                    const td = document.createElement("td");
+                    const val = row[col];
+                    td.textContent = (val === null || val === undefined || val === "") ? "" : fmt(val);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        baixarExcelCompleto() {
+            // Garante que a tabela esteja atualizada antes de exportar.
+            this.atualizarTabela();
+            if (!this.state.needs.length) {
+                alert("Sem dados na tabela para exportar.");
+                return;
+            }
+
+            const headers = this.NEEDS_COLS;
+            const objects = this.state.needs.map(r => {
+                const o = {};
+                headers.forEach(h => { o[h] = (r[h] === undefined || r[h] === null) ? "" : r[h]; });
+                return o;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(objects, { header: headers });
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "dados");
+            XLSX.writeFile(wb, "necessidades_carcacas.xlsx");
+        },
+
+        /** Carcaça / discos / chapas: códigos preenchidos ou palavras-chave nas descrições. */
+        isLinhaCarcacaOuDisco(row) {
+            const d1 = String(row["Codigo_Disco/chapa"] ?? "").trim();
+            const d2 = String(row["Codigo_Disco/chapa1"] ?? "").trim();
+            if (d1 || d2) return true;
+            const partes = [
+                row["Descrição_Acessório"],
+                row["Descrição_Produto"],
+                row["Descrição_Disco/chapa"],
+                row["Descrição_Disco/chapa1"],
+            ].map(x => String(x ?? ""));
+            const blob = this.normalizeText(partes.join(" "))
+                .replace(/\u00e7/g, "c")
+                .replace(/\u00c7/g, "c");
+            const keys = ["carca", "disco", "chapa", "bandej", "anel", "aro"];
+            return keys.some((k) => blob.includes(k));
+        },
+
+        rowsSaldoNegativoProducao() {
+            return this.state.needs.filter((r) => {
+                if (this.toNumber(r["Saldo"] || 0) >= 0) return false;
+                return this.isLinhaCarcacaOuDisco(r);
+            });
+        },
+
+        rowsSaldoNegativoAlmox() {
+            return this.state.needs.filter((r) => {
+                if (this.toNumber(r["Saldo"] || 0) >= 0) return false;
+                return !this.isLinhaCarcacaOuDisco(r);
+            });
+        },
+
+        _escHtml(s) {
+            return String(s ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        },
+
+        _buildPrintHtml(title, rows) {
+            const cols = this.NEEDS_COLS;
+            const thead = `<tr>${cols.map((c) => `<th>${this._escHtml(c)}</th>`).join("")}</tr>`;
+            const tbody = rows
+                .map((r) => {
+                    const tds = cols.map((c) => {
+                        const v = r[c];
+                        const t = v === null || v === undefined || v === "" ? "" : String(v);
+                        return `<td>${this._escHtml(t)}</td>`;
+                    });
+                    return `<tr>${tds.join("")}</tr>`;
+                })
+                .join("");
+            const t = this._escHtml(title);
+            const when = this._escHtml(new Date().toLocaleString("pt-BR"));
+            const n = rows.length;
+            const emptyMsg =
+                n === 0
+                    ? `<p><em>Nenhuma linha com saldo negativo nesta classificação.</em></p>`
+                    : "";
+            const tableBlock = n
+                ? `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`
+                : "";
+            return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${t}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: system-ui, "Segoe UI", sans-serif; font-size: 10pt; color: #111; margin: 0; padding: 16px; }
+  h1 { font-size: 14pt; margin: 0 0 10px; }
+  .meta { color: #444; font-size: 9pt; margin-bottom: 16px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #bbb; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #eee; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.04em; }
+</style></head><body>
+<h1>${t}</h1>
+<div class="meta">Emitido em ${when} · ${n} linha(s)</div>
+${emptyMsg}
+${tableBlock}
+</body></html>`;
+        },
+
+        imprimirNecessidadesProducao() {
+            this.atualizarTabela();
+            if (!this.state.needs.length) {
+                alert("Não há dados na tabela. Selecione relações, importe a base (dados) e o estoque.");
+                return;
+            }
+            const rows = this.rowsSaldoNegativoProducao();
+            const w = window.open("", "_blank");
+            if (!w) {
+                alert("Permita janelas pop-up para abrir a impressão.");
+                return;
+            }
+            w.document.write(this._buildPrintHtml("Necessidades — Produção (carcaça / discos / chapas)", rows));
+            w.document.close();
+            setTimeout(function () {
+                try {
+                    w.focus();
+                    w.print();
+                } catch (e) {}
+            }, 200);
+        },
+
+        imprimirNecessidadesAlmox() {
+            this.atualizarTabela();
+            if (!this.state.needs.length) {
+                alert("Não há dados na tabela. Selecione relações, importe a base (dados) e o estoque.");
+                return;
+            }
+            const rows = this.rowsSaldoNegativoAlmox();
+            const w = window.open("", "_blank");
+            if (!w) {
+                alert("Permita janelas pop-up para abrir a impressão.");
+                return;
+            }
+            w.document.write(this._buildPrintHtml("Necessidades — Almoxarifado", rows));
+            w.document.close();
+            setTimeout(function () {
+                try {
+                    w.focus();
+                    w.print();
+                } catch (e) {}
+            }, 200);
+        },
+
+        baixarColuna() {},
+        baixarExcelPorColuna() {},
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        App.init();
+        document.addEventListener("click", (ev) => {
+            const menu = document.getElementById("relacoesMiniMenu");
+            const btn = document.getElementById("toggleRelacoesMenuBtn");
+            if (!menu || !menu.classList.contains("is-open")) return;
+            const target = ev.target;
+            if (menu.contains(target) || (btn && btn.contains(target))) return;
+            App.toggleRelacoesMenu(false);
+        });
+        document.addEventListener("fullscreenchange", () => {
+            const active = !!document.fullscreenElement;
+            App.state.tabelaExpandida = active;
+            const wrap = document.getElementById("needsTableWrap");
+            const overlay = document.getElementById("tableOverlay");
+            const btn = document.getElementById("expandTableBtn");
+            const btnTop = document.getElementById("expandTableBtnTop");
+            if (wrap) wrap.classList.toggle("cp-table-wrap--fullscreen", active);
+            if (overlay) overlay.classList.toggle("is-visible", active);
+            if (btn) btn.textContent = active ? "Fechar expansão" : "Expandir tabela";
+            if (btnTop) btnTop.textContent = active ? "Fechar expansão" : "Expandir tabela";
+            document.body.style.overflow = active ? "hidden" : "";
+            document.body.classList.toggle("needs-fullscreen", active);
+        });
+    });
+</script>
+{% endblock %}
+

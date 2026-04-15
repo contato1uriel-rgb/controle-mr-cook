@@ -1,0 +1,23 @@
+{% extends "producao/base.html" %}
+
+{% block title %}Distribuir Operação • CONTROLE MR. COOK{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2 style="margin:0 0 6px;">Preparar folha para imprimir</h2>
+        <div class="muted" style="margin-bottom: 14px;">
+            Selecione uma categoria, escolha uma relação e gere a folha filtrada para impressão.
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a class="btn" href="{% url 'configurar_distribuicao' %}">Configurar distribuição</a>
+            <a class="btn" href="{% url 'home' %}">Voltar</a>
+            <button class="btn btn-primary" type="button" disabled>Imprimir</button>
+        </div>
+
+        <div class="muted" style="margin-top: 14px;">
+            (Próximo passo) Aqui vai entrar: botões de categoria, lista de relações e tabela de resumo por categoria.
+        </div>
+    </div>
+{% endblock %}
+

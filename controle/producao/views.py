@@ -20,7 +20,18 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
-from .models import Categoria, DiscoRazaoSocial, FiltroPedido, OrdemProducao, Produto, Relacao, RelacaoItem
+from .models import (
+    CacarolaMaquina,
+    CacarolaProduto,
+    CacarolaRegistro,
+    Categoria,
+    DiscoRazaoSocial,
+    FiltroPedido,
+    OrdemProducao,
+    Produto,
+    Relacao,
+    RelacaoItem,
+)
 
 
 PCP_EXPORTS = {
@@ -2790,6 +2801,56 @@ def controle_producao_login(request):
     return render(request, "producao/controle_producao_login.html", contexto)
 
 
+def _dec_or_zero(value) -> Decimal:
+    s = str(value or "").strip().replace(",", ".")
+    if not s:
+        return Decimal("0")
+    try:
+        return Decimal(s)
+    except Exception:  # noqa: BLE001
+        return Decimal("0")
+
+
+def _time_or_none(value):
+    s = str(value or "").strip()
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s, "%H:%M").time()
+    except ValueError:
+        return None
+
+
+def _serialize_cacarola_registro(r: CacarolaRegistro) -> dict:
+    return {
+        "uid": r.uid,
+        "data": r.data.isoformat() if r.data else "",
+        "turno": r.turno or "",
+        "maquina": r.maquina or "",
+        "responsavel": r.responsavel or "",
+        "tipoProduto": r.tipo_produto or "",
+        "produto": r.produto or "",
+        "quantidade": float(r.quantidade or 0),
+        "odf": r.odf or "",
+        "inicio": r.inicio.strftime("%H:%M") if r.inicio else "",
+        "fim": r.fim.strftime("%H:%M") if r.fim else "",
+        "refeicao": float(r.refeicao or 0),
+        "tempo": float(r.tempo or 0),
+        "pecasHora": float(r.pecas_hora or 0),
+        "paradasMin": float(r.paradas_min or 0),
+        "ciclo": float(r.ciclo or 0),
+        "perdas": float(r.perdas or 0),
+        "material": float(r.material or 0),
+        "estampo": float(r.estampo or 0),
+        "polimento": float(r.polimento or 0),
+        "refilador": float(r.refilador or 0),
+        "rebite": float(r.rebite or 0),
+        "amassado": float(r.amassado or 0),
+        "pintura": float(r.pintura or 0),
+    }
+
+
+@ensure_csrf_cookie
 def controle_producao_cacarolas(request):
     nomes_produto = []
     nomes_produto.extend(
@@ -2818,6 +2879,114 @@ def controle_producao_cacarolas(request):
         "produtos_seed_json": json.dumps(produtos_seed, ensure_ascii=False),
     }
     return render(request, "producao/controle_producao_cacarolas.html", contexto)
+
+
+@ensure_csrf_cookie
+def api_cacarolas_state(request):
+    maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
+    produtos = list(CacarolaProduto.objects.values("nome", "ciclo"))
+    registros = [_serialize_cacarola_registro(r) for r in CacarolaRegistro.objects.all()[:5000]]
+    return JsonResponse(
+        {
+            "maquinas": maquinas,
+            "produtos": [{"nome": p["nome"], "ciclo": float(p["ciclo"] or 0)} for p in produtos],
+            "registros": registros,
+        }
+    )
+
+
+@require_POST
+def api_cacarolas_add_maquina(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:  # noqa: BLE001
+        payload = {}
+    nome = str(payload.get("nome") or "").strip()
+    if not nome:
+        return JsonResponse({"ok": False, "erro": "Nome da máquina é obrigatório."}, status=400)
+    CacarolaMaquina.objects.get_or_create(nome=nome)
+    maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
+    return JsonResponse({"ok": True, "maquinas": maquinas})
+
+
+@require_POST
+def api_cacarolas_upsert_produtos(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:  # noqa: BLE001
+        payload = {}
+    produtos = payload.get("produtos") if isinstance(payload.get("produtos"), list) else []
+    if not produtos:
+        return JsonResponse({"ok": False, "erro": "Lista de produtos inválida."}, status=400)
+    for p in produtos:
+        nome = str((p or {}).get("nome") or "").strip()
+        if not nome:
+            continue
+        ciclo = _dec_or_zero((p or {}).get("ciclo"))
+        CacarolaProduto.objects.update_or_create(
+            nome=nome,
+            defaults={"ciclo": ciclo},
+        )
+    final = list(CacarolaProduto.objects.values("nome", "ciclo"))
+    return JsonResponse({"ok": True, "produtos": [{"nome": x["nome"], "ciclo": float(x["ciclo"] or 0)} for x in final]})
+
+
+@require_POST
+def api_cacarolas_upsert_registro(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:  # noqa: BLE001
+        payload = {}
+    uid = str(payload.get("uid") or "").strip()
+    data_txt = str(payload.get("data") or "").strip()
+    if not uid or not data_txt:
+        return JsonResponse({"ok": False, "erro": "UID e data são obrigatórios."}, status=400)
+    try:
+        data_val = datetime.strptime(data_txt, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse({"ok": False, "erro": "Data inválida."}, status=400)
+    obj, _ = CacarolaRegistro.objects.update_or_create(
+        uid=uid,
+        defaults={
+            "data": data_val,
+            "turno": str(payload.get("turno") or "").strip(),
+            "maquina": str(payload.get("maquina") or "").strip(),
+            "responsavel": str(payload.get("responsavel") or "").strip(),
+            "tipo_produto": str(payload.get("tipoProduto") or "").strip(),
+            "produto": str(payload.get("produto") or "").strip(),
+            "quantidade": _dec_or_zero(payload.get("quantidade")),
+            "odf": str(payload.get("odf") or "").strip(),
+            "inicio": _time_or_none(payload.get("inicio")),
+            "fim": _time_or_none(payload.get("fim")),
+            "refeicao": _dec_or_zero(payload.get("refeicao")),
+            "tempo": _dec_or_zero(payload.get("tempo")),
+            "pecas_hora": _dec_or_zero(payload.get("pecasHora")),
+            "paradas_min": _dec_or_zero(payload.get("paradasMin")),
+            "ciclo": _dec_or_zero(payload.get("ciclo")),
+            "perdas": _dec_or_zero(payload.get("perdas")),
+            "material": _dec_or_zero(payload.get("material")),
+            "estampo": _dec_or_zero(payload.get("estampo")),
+            "polimento": _dec_or_zero(payload.get("polimento")),
+            "refilador": _dec_or_zero(payload.get("refilador")),
+            "rebite": _dec_or_zero(payload.get("rebite")),
+            "amassado": _dec_or_zero(payload.get("amassado")),
+            "pintura": _dec_or_zero(payload.get("pintura")),
+        },
+    )
+    return JsonResponse({"ok": True, "registro": _serialize_cacarola_registro(obj)})
+
+
+@require_POST
+def api_cacarolas_delete_registro(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:  # noqa: BLE001
+        payload = {}
+    uid = str(payload.get("uid") or "").strip()
+    if not uid:
+        return JsonResponse({"ok": False, "erro": "UID é obrigatório."}, status=400)
+    CacarolaRegistro.objects.filter(uid=uid).delete()
+    return JsonResponse({"ok": True})
 
 
 def lista_produtos(request):

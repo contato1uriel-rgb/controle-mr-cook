@@ -839,6 +839,14 @@ const CP_CORES_TURNO = [
 ];
 const CP_PRODUTOS_SEED = JSON.parse('{{ produtos_seed_json|escapejs }}');
 
+function getCookie(name) {
+    const cookieValue = document.cookie
+        .split(";")
+        .map(c => c.trim())
+        .find(c => c.startsWith(name + "="));
+    return cookieValue ? decodeURIComponent(cookieValue.split("=")[1]) : "";
+}
+
 /** Fatias do grafico de pizza: variacao de matiz por turno */
 function cpSliceColors(turnIndex, n) {
     const hues = [115, 220, 48];
@@ -856,29 +864,21 @@ function cpSliceColors(turnIndex, n) {
 const App = {
     state: {
         registros: [],
-        maquinas: JSON.parse(localStorage.getItem("maquinas") || "[]"),
-        produtos: (() => {
-            const local = JSON.parse(localStorage.getItem("produtos") || "[]");
-            if (Array.isArray(local) && local.length) return local;
-            if (Array.isArray(CP_PRODUTOS_SEED) && CP_PRODUTOS_SEED.length) {
-                localStorage.setItem("produtos", JSON.stringify(CP_PRODUTOS_SEED));
-                return CP_PRODUTOS_SEED;
-            }
-            return [];
-        })(),
+        maquinas: [],
+        produtos: [],
         dadosFiltrados: [],
         editUid: null,
         charts: {},
         tabelaExpandida: false,
     },
 
-    init() {
+    async init() {
         document.getElementById("painel").style.display = "block";
         this.bindHoraMaquina();
         this.bindProduto();
         this.bindFiltroDashboard();
         this.bindDadosExpandir();
-        this.state.registros = this.loadRegistros();
+        await this.syncOnlineState();
         this.atualizarListas();
         this.preencherMesVigente();
         this.state.dadosFiltrados = [...this.state.registros];
@@ -896,16 +896,48 @@ const App = {
         });
     },
 
-    loadRegistros() {
-        const raw = JSON.parse(localStorage.getItem("registros") || "[]");
-        const lista = Array.isArray(raw) ? raw : [];
-        const normalizados = lista.map((r, i) => this.normalizeRegistro(r, i)).filter(r => r && r.data);
-        localStorage.setItem("registros", JSON.stringify(normalizados));
-        return normalizados;
+    async syncOnlineState() {
+        try {
+            const res = await fetch("/api/cacarolas/state/", { credentials: "same-origin" });
+            const data = await res.json();
+            this.state.maquinas = Array.isArray(data.maquinas) ? data.maquinas : [];
+            this.state.produtos = Array.isArray(data.produtos) ? data.produtos : [];
+            this.state.registros = (Array.isArray(data.registros) ? data.registros : [])
+                .map((r, i) => this.normalizeRegistro(r, i))
+                .filter(r => r && r.data);
+            if (!this.state.produtos.length && Array.isArray(CP_PRODUTOS_SEED) && CP_PRODUTOS_SEED.length) {
+                await this.upsertProdutosOnline(CP_PRODUTOS_SEED);
+            }
+        } catch (e) {
+            console.error("Falha ao sincronizar dados online de caçarolas:", e);
+            this.state.maquinas = [];
+            this.state.produtos = Array.isArray(CP_PRODUTOS_SEED) ? [...CP_PRODUTOS_SEED] : [];
+            this.state.registros = [];
+        }
     },
 
-    saveRegistros() {
-        localStorage.setItem("registros", JSON.stringify(this.state.registros));
+    async postJSON(url, payload) {
+        const res = await fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: JSON.stringify(payload || {}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+            throw new Error(data.erro || `Erro ao acessar ${url}`);
+        }
+        return data;
+    },
+
+    async upsertProdutosOnline(produtos) {
+        const payload = Array.isArray(produtos) ? produtos : [];
+        const data = await this.postJSON("/api/cacarolas/produtos/upsert/", { produtos: payload });
+        this.state.produtos = Array.isArray(data.produtos) ? data.produtos : [];
+        this.atualizarListas();
     },
 
     normalizeRegistro(r, index = 0) {
@@ -1084,29 +1116,39 @@ const App = {
         }
     },
 
-    addMaquina() {
+    async addMaquina() {
         const input = document.getElementById("novaMaquina");
         const nome = input.value.trim();
         if (!nome) return;
-        if (!this.state.maquinas.includes(nome)) {
-            this.state.maquinas.push(nome);
-            localStorage.setItem("maquinas", JSON.stringify(this.state.maquinas));
+        try {
+            const data = await this.postJSON("/api/cacarolas/maquinas/add/", { nome });
+            this.state.maquinas = Array.isArray(data.maquinas) ? data.maquinas : this.state.maquinas;
             this.atualizarListas();
+            input.value = "";
+        } catch (err) {
+            alert(err.message || "Não foi possível salvar a máquina online.");
         }
-        input.value = "";
     },
 
     importarExcel(e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = evt => {
+        reader.onload = async evt => {
             const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
-            this.state.produtos = rows.map(r => ({ nome: r[0], ciclo: Number(r[1] || 0) })).filter(p => p.nome);
-            localStorage.setItem("produtos", JSON.stringify(this.state.produtos));
-            this.atualizarListas();
+            const produtosImportados = rows.map(r => ({ nome: r[0], ciclo: Number(r[1] || 0) })).filter(p => p.nome);
+            if (!produtosImportados.length) {
+                alert("Nenhum produto válido foi encontrado no arquivo.");
+                return;
+            }
+            try {
+                await this.upsertProdutosOnline(produtosImportados);
+                alert("Produtos importados e sincronizados online.");
+            } catch (err) {
+                alert(err.message || "Falha ao importar produtos para o servidor.");
+            }
         };
         reader.readAsArrayBuffer(file);
     },
@@ -1155,7 +1197,7 @@ const App = {
         return { horas, pecasHora };
     },
 
-    salvar() {
+    async salvar() {
         const calculos = this.getHora();
         const perdas =
             Number(document.getElementById("material").value || 0) +
@@ -1200,9 +1242,15 @@ const App = {
             return;
         }
         const idx = this.state.registros.findIndex(r => r.uid === this.state.editUid);
-        if (idx >= 0) this.state.registros[idx] = base;
-        else this.state.registros.push(base);
-        this.saveRegistros();
+        try {
+            const data = await this.postJSON("/api/cacarolas/registros/upsert/", base);
+            const registro = this.normalizeRegistro(data.registro || base, idx >= 0 ? idx : this.state.registros.length);
+            if (idx >= 0) this.state.registros[idx] = registro;
+            else this.state.registros.push(registro);
+        } catch (err) {
+            alert(err.message || "Não foi possível salvar o registro online.");
+            return;
+        }
         this.state.editUid = null;
         this.atualizarBotaoSalvar();
         this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
@@ -1241,10 +1289,15 @@ const App = {
         this.abrirForm();
     },
 
-    excluir(uid) {
+    async excluir(uid) {
         if (!confirm("Deseja excluir este registro?")) return;
+        try {
+            await this.postJSON("/api/cacarolas/registros/delete/", { uid });
+        } catch (err) {
+            alert(err.message || "Não foi possível excluir o registro online.");
+            return;
+        }
         this.state.registros = this.state.registros.filter(r => r.uid !== uid);
-        this.saveRegistros();
         this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
         this.aplicarDashboardMesVigente();
         this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);

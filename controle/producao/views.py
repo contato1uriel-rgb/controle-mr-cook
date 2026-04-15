@@ -1022,6 +1022,26 @@ def pcp(request):
         rows.extend(fonte_rows)
         fontes_disponiveis.append({"key": key, "nome": item["nome"]})
 
+    # Fallback online: quando não há arquivos .xls disponíveis no servidor,
+    # usa os dados persistidos em FiltroPedido para manter a aba PCP funcional.
+    if not rows:
+        for fp in FiltroPedido.objects.all().order_by("numero_pedido", "id"):
+            rows.append(
+                {
+                    "pedido": (fp.numero_pedido or "").strip(),
+                    "descricao": (fp.descricao or fp.descricao_produto or "").strip(),
+                    "codigo": (fp.cod_interno or fp.codigo_produto or "").strip(),
+                    "saldo": (fp.necessidade or fp.saldo_pedido or "").strip(),
+                    "fonte_key": "dados_filtragem",
+                    "fonte_nome": "Dados de filtragem",
+                    "cod_cliente": "",
+                    "cliente": "",
+                    "data_entrada_iso": "",
+                }
+            )
+        if rows:
+            fontes_disponiveis.append({"key": "dados_filtragem", "nome": "Dados de filtragem"})
+
     # Mapa Cód Interno -> Setor(es) vindo de "Dados de filtragem"
     setor_by_cod: dict[str, set[str]] = {}
     for f in FiltroPedido.objects.exclude(cod_interno="").exclude(setor="").all():

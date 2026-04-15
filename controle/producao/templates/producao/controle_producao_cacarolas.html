@@ -870,6 +870,7 @@ const App = {
         editUid: null,
         charts: {},
         tabelaExpandida: false,
+        syncTimer: null,
     },
 
     async init() {
@@ -884,6 +885,34 @@ const App = {
         this.state.dadosFiltrados = [...this.state.registros];
         this.aplicarDashboardMesVigente();
         this.renderTabelaDados(this.state.registros);
+        this.startAutoSync();
+    },
+
+    startAutoSync() {
+        if (this.state.syncTimer) clearInterval(this.state.syncTimer);
+        this.state.syncTimer = setInterval(() => {
+            if (this.state.editUid) return; // evita sobrescrever enquanto edita
+            this.refreshFromServer(true);
+        }, 10000);
+    },
+
+    async refreshFromServer(silent = false) {
+        try {
+            await this.syncOnlineState();
+            this.atualizarListas();
+            this.state.dadosFiltrados = this.aplicarFiltroPorData(
+                this.state.registros,
+                document.getElementById("dadosDataInicial").value,
+                document.getElementById("dadosDataFinal").value
+            );
+            this.aplicarDashboardMesVigente();
+            const usandoFiltro = !!document.getElementById("dadosDataInicial").value || !!document.getElementById("dadosDataFinal").value;
+            this.renderTabelaDados(usandoFiltro ? this.state.dadosFiltrados : this.state.registros);
+        } catch (e) {
+            if (!silent) {
+                alert("Falha ao atualizar dados online.");
+            }
+        }
     },
 
     bindFiltroDashboard() {

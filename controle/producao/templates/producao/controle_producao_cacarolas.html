@@ -347,6 +347,30 @@
     #config, #form, #dados { display: none; }
 
     .cp-help { margin-top: 6px; color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+    .cp-toggle-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .cp-toggle-btn {
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 6px;
+        font-family: var(--font-ui);
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.15s ease;
+    }
+    .cp-toggle-btn:hover {
+        border-color: var(--border-bright);
+    }
+    .cp-toggle-btn.is-active {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+        box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.18);
+    }
     .cp-table-wrap {
         overflow-x: auto;
         margin-top: 12px;
@@ -661,6 +685,7 @@
                         <th>Turno</th>
                         <th>Maquina</th>
                         <th>Responsavel</th>
+                        <th>Tipo</th>
                         <th>Produto</th>
                         <th>ODF</th>
                         <th>Quantidade</th>
@@ -724,6 +749,15 @@
         </div>
 
         <div class="cp-grid cp-grid-3" style="margin-top:10px;">
+            <div>
+                <label class="cp-label">Tipo do Produto <span style="color:#f87171;">*</span></label>
+                <div class="cp-toggle-group" id="tipoProdutoGroup">
+                    <button type="button" class="cp-toggle-btn" data-tipo="acabado" onclick="App.setTipoProduto('acabado')">Produto acabado</button>
+                    <button type="button" class="cp-toggle-btn" data-tipo="semiacabado" onclick="App.setTipoProduto('semiacabado')">Semiacabado</button>
+                </div>
+                <input type="hidden" id="tipoProduto" value="">
+                <div class="cp-help">Campo obrigatório para salvar o registro.</div>
+            </div>
             <div>
                 <label class="cp-label">Produto</label>
                 <input list="produtosDatalist" id="produto">
@@ -875,12 +909,14 @@ const App = {
         const turno = this.normalizeTurno(r.turno ?? r.turnoLabel ?? r.periodo ?? '');
         const uid = String(r.uid || r.id || `${data}-${turno}-${r.maquina || ''}-${index}`);
         const pecasHora = tempo > 0 ? this.toNumber(r.pecasHora ?? (quantidade / tempo)) : 0;
+        const tipoProduto = String(r.tipoProduto || r.tipo_produto || '').trim().toLowerCase();
         return {
             uid,
             data,
             turno,
             maquina: String(r.maquina || r.machine || '').trim(),
             responsavel: String(r.responsavel || r.operador || '').trim(),
+            tipoProduto: ["acabado", "semiacabado"].includes(tipoProduto) ? tipoProduto : "",
             produto: String(r.produto || '').trim(),
             quantidade,
             odf: String(r.odf || '').trim(),
@@ -1014,6 +1050,18 @@ const App = {
         });
     },
 
+    setTipoProduto(tipo) {
+        const normalized = ["acabado", "semiacabado"].includes(String(tipo || "").toLowerCase())
+            ? String(tipo).toLowerCase()
+            : "";
+        document.getElementById("tipoProduto").value = normalized;
+        const botoes = Array.from(document.querySelectorAll("#tipoProdutoGroup .cp-toggle-btn"));
+        botoes.forEach(btn => {
+            const ativo = btn.dataset.tipo === normalized;
+            btn.classList.toggle("is-active", normalized && ativo);
+        });
+    },
+
     bindProduto() {
         const produto = document.getElementById("produto");
         if (produto && !produto.dataset.boundProduto) {
@@ -1113,6 +1161,7 @@ const App = {
             turno: document.getElementById("turno").value,
             maquina: document.getElementById("maquina").value,
             responsavel: document.getElementById("responsavel").value,
+            tipoProduto: document.getElementById("tipoProduto").value,
             produto: document.getElementById("produto").value,
             quantidade: Number(document.getElementById("quantidade").value || 0),
             odf: document.getElementById("odf").value,
@@ -1136,6 +1185,10 @@ const App = {
             alert("Informe a data do registro.");
             return;
         }
+        if (!base.tipoProduto) {
+            alert("Selecione o tipo do produto: Produto acabado ou Semiacabado.");
+            return;
+        }
         const idx = this.state.registros.findIndex(r => r.uid === this.state.editUid);
         if (idx >= 0) this.state.registros[idx] = base;
         else this.state.registros.push(base);
@@ -1157,6 +1210,7 @@ const App = {
         document.getElementById("maquina").value = r.maquina || "";
         document.getElementById("turno").value = r.turno || "1";
         document.getElementById("responsavel").value = r.responsavel || "";
+        this.setTipoProduto(r.tipoProduto || "");
         document.getElementById("produto").value = r.produto || "";
         document.getElementById("cicloIdeal").value = r.ciclo || 0;
         document.getElementById("quantidade").value = r.quantidade || 0;
@@ -1196,6 +1250,7 @@ const App = {
             const el = document.getElementById(id);
             if (el) el.value = "";
         });
+        this.setTipoProduto("");
         document.getElementById("turno").value = "1";
         this.state.editUid = null;
         this.atualizarBotaoSalvar();
@@ -1491,6 +1546,7 @@ const App = {
                     <td>${r.turno || ""}</td>
                     <td>${r.maquina || ""}</td>
                     <td>${r.responsavel || ""}</td>
+                    <td>${r.tipoProduto === "acabado" ? "Produto acabado" : (r.tipoProduto === "semiacabado" ? "Semiacabado" : "")}</td>
                     <td>${r.produto || ""}</td>
                     <td>${r.odf || ""}</td>
                     <td>${r.quantidade || 0}</td>
@@ -1513,6 +1569,7 @@ const App = {
             Turno: r.turno || "",
             Maquina: r.maquina || "",
             Responsavel: r.responsavel || "",
+            Tipo: r.tipoProduto === "acabado" ? "Produto acabado" : (r.tipoProduto === "semiacabado" ? "Semiacabado" : ""),
             Produto: r.produto || "",
             ODF: r.odf || "",
             Quantidade: r.quantidade || 0,

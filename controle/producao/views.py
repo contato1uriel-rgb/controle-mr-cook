@@ -1026,9 +1026,15 @@ def pcp(request):
     # usa os dados persistidos em FiltroPedido para manter a aba PCP funcional.
     if not rows:
         for fp in FiltroPedido.objects.all().order_by("numero_pedido", "id"):
+            pedido_fallback = (
+                (fp.numero_pedido or "").strip()
+                or (fp.codigo_produto or "").strip()
+                or (fp.cod_interno or "").strip()
+                or f"SEM-PEDIDO-{fp.id}"
+            )
             rows.append(
                 {
-                    "pedido": (fp.numero_pedido or "").strip(),
+                    "pedido": pedido_fallback,
                     "descricao": (fp.descricao or fp.descricao_produto or "").strip(),
                     "codigo": (fp.cod_interno or fp.codigo_produto or "").strip(),
                     "saldo": (fp.necessidade or fp.saldo_pedido or "").strip(),

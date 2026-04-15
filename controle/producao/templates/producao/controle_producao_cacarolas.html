@@ -836,6 +836,7 @@ const CP_CORES_TURNO = [
     { backgroundColor: 'rgba(0, 85, 212, 0.88)', borderColor: 'rgba(80, 160, 255, 0.95)', hoverBackgroundColor: 'rgba(40, 130, 235, 0.95)' },
     { backgroundColor: 'rgba(255, 204, 0, 0.88)', borderColor: 'rgba(255, 225, 100, 0.95)', hoverBackgroundColor: 'rgba(255, 215, 60, 0.95)' },
 ];
+const CP_PRODUTOS_SEED = JSON.parse('{{ produtos_seed_json|escapejs }}');
 
 /** Fatias do grafico de pizza: variacao de matiz por turno */
 function cpSliceColors(turnIndex, n) {
@@ -855,7 +856,15 @@ const App = {
     state: {
         registros: [],
         maquinas: JSON.parse(localStorage.getItem("maquinas") || "[]"),
-        produtos: JSON.parse(localStorage.getItem("produtos") || "[]"),
+        produtos: (() => {
+            const local = JSON.parse(localStorage.getItem("produtos") || "[]");
+            if (Array.isArray(local) && local.length) return local;
+            if (Array.isArray(CP_PRODUTOS_SEED) && CP_PRODUTOS_SEED.length) {
+                localStorage.setItem("produtos", JSON.stringify(CP_PRODUTOS_SEED));
+                return CP_PRODUTOS_SEED;
+            }
+            return [];
+        })(),
         dadosFiltrados: [],
         editUid: null,
         charts: {},

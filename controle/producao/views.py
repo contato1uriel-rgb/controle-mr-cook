@@ -2791,7 +2791,33 @@ def controle_producao_login(request):
 
 
 def controle_producao_cacarolas(request):
-    return render(request, "producao/controle_producao_cacarolas.html")
+    nomes_produto = []
+    nomes_produto.extend(
+        Produto.objects.filter(ativo=True)
+        .exclude(nome="")
+        .values_list("nome", flat=True)
+    )
+    nomes_produto.extend(
+        FiltroPedido.objects.exclude(descricao_produto="")
+        .values_list("descricao_produto", flat=True)
+    )
+    vistos = set()
+    produtos_seed = []
+    for nome in nomes_produto:
+        n = str(nome or "").strip()
+        if not n:
+            continue
+        chave = n.casefold()
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        produtos_seed.append({"nome": n, "ciclo": 0})
+        if len(produtos_seed) >= 5000:
+            break
+    contexto = {
+        "produtos_seed_json": json.dumps(produtos_seed, ensure_ascii=False),
+    }
+    return render(request, "producao/controle_producao_cacarolas.html", contexto)
 
 
 def lista_produtos(request):

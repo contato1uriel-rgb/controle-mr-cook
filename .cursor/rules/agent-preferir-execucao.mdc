@@ -1,0 +1,9 @@
+---
+description: O agente executa primeiro; não delegar passos desnecessários
+alwaysApply: true
+---
+
+- Tentar **sempre primeiro** qualquer método disponível no Cursor (terminal no projeto, editar ficheiros, grep, repetir com alternativa) para cumprir o pedido.
+- **Não** pedir ao utilizador para correr comandos ou clicar em sítios que o agente possa substituir por ferramentas.
+- Só envolver o utilizador quando **não** houver forma viável daqui (ex.: autenticação que falhe no terminal, browser/painel web sem API, segredo que o agente não pode inventar).
+- Respostas em **português do Brasil**, salvo o utilizador pedir outra língua.

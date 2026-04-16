@@ -563,7 +563,7 @@
             <h2 class="cp-title">CONTROLE DE PRODUÇÃO · CAÇAROLAS</h2>
             <p class="cp-sub">OEE, gráficos e ranking no período filtrado. Turnos: <strong>1º</strong> · <strong>2º</strong> · <strong>3º</strong>.</p>
             <div class="cp-actions" style="margin-top:14px;">
-                <button type="button" class="btn btn-accent" onclick="App.abrirForm()">Adicionar Registro</button>
+                <button type="button" class="btn btn-accent" onclick="App.abrirForm()">Adicionar registro</button>
                 <button type="button" class="btn" onclick="App.abrirDados()">Dados</button>
                 <button type="button" class="btn" onclick="App.abrirConfig()">Configurações</button>
             </div>
@@ -576,13 +576,34 @@
     </div>
 
     <div id="painel" class="cp-panel">
+        <div class="cp-box cp-box--spaced">
+            <div class="cp-section-title">Período (painel e tabela)</div>
+            <p class="cp-help" style="margin:0 0 10px;">Um intervalo só: vale para os gráficos abaixo e para a tabela na secção Dados.</p>
+            <div class="cp-toolbar">
+                <div>
+                    <label class="cp-label">Data inicial</label>
+                    <input type="date" id="dadosDataInicial">
+                </div>
+                <div>
+                    <label class="cp-label">Data final</label>
+                    <input type="date" id="dadosDataFinal">
+                </div>
+                <div>
+                    <button type="button" class="btn btn-accent" onclick="App.aplicarPeriodo()">Aplicar período</button>
+                </div>
+                <div>
+                    <button type="button" class="btn" onclick="App.limparPeriodo()">Limpar período</button>
+                </div>
+            </div>
+        </div>
+
         <div class="cp-grid cp-grid-2">
             <div class="cp-box">
-                <h3 style="margin:0;">OEE por Maquina</h3>
+                <h3 style="margin:0;">OEE por máquina</h3>
                 <ul class="cp-list" id="oeeMaquina"></ul>
             </div>
             <div class="cp-box">
-                <h3 style="margin:0;">Ranking Producao</h3>
+                <h3 style="margin:0;">Ranking de produção</h3>
                 <ul class="cp-list" id="rankingMaquinas"></ul>
             </div>
         </div>
@@ -596,7 +617,7 @@
                 </div>
             </div>
             <div class="cp-kpi cp-kpi--compact cp-kpi--prod">
-                <h4>Producao</h4>
+                <h4>Produção</h4>
                 <div class="cp-kpi-value" id="kpiProd">0</div>
                 <div class="cp-kpi-chart-wrap"><canvas id="kpiChartProd"></canvas></div>
             </div>
@@ -612,23 +633,8 @@
             </div>
         </div>
 
-        <div class="cp-box cp-box--spaced cp-grid cp-grid-3">
-            <div class="cp-section-title" style="grid-column:1/-1;margin-bottom:4px;">Filtro do periodo</div>
-            <div>
-                <label class="cp-label">Data Inicial</label>
-                <input type="date" id="dataInicial">
-            </div>
-            <div>
-                <label class="cp-label">Data Final</label>
-                <input type="date" id="dataFinal">
-            </div>
-            <div style="display:flex; align-items:end;">
-                <button type="button" class="btn btn-accent" onclick="App.filtrar()">Filtrar</button>
-            </div>
-        </div>
-
         <div class="cp-box cp-box--spaced">
-            <div class="cp-section-title">Graficos por turno</div>
+            <div class="cp-section-title">Gráficos por turno</div>
             <p class="cp-help" style="margin:0 0 14px;">Participação de Produção x Perdas por turno no período filtrado.</p>
             <div class="cp-turno-charts-row">
                 <div class="cp-turno-chart-card">
@@ -659,23 +665,10 @@
 
     <div id="dados" class="cp-box">
         <div class="cp-dados-header">
-            <h3 style="margin:0;">Dados da Producao</h3>
+            <h3 style="margin:0;">Dados da produção</h3>
+            <p class="cp-help" style="margin:6px 0 0;">O período é o mesmo definido em cima no painel (Aplicar período).</p>
         </div>
         <div class="cp-toolbar">
-            <div>
-                <label class="cp-label">Data Inicial</label>
-                <input type="date" id="dadosDataInicial">
-            </div>
-            <div>
-                <label class="cp-label">Data Final</label>
-                <input type="date" id="dadosDataFinal">
-            </div>
-            <div>
-                <button type="button" class="btn btn-accent" onclick="App.filtrarDados()">Filtrar Tabela</button>
-            </div>
-            <div>
-                <button type="button" class="btn" onclick="App.limparFiltroDados()">Limpar Filtro</button>
-            </div>
             <div>
                 <button type="button" class="btn" onclick="App.baixarExcel()">Baixar Excel</button>
             </div>
@@ -694,13 +687,13 @@
                     <tr>
                         <th>Data</th>
                         <th>Turno</th>
-                        <th>Maquina</th>
-                        <th>Responsavel</th>
+                        <th>Máquina</th>
+                        <th>Responsável</th>
                         <th>Tipo</th>
                         <th>Produto</th>
                         <th>ODF</th>
                         <th>Quantidade</th>
-                        <th>Hora Maquina</th>
+                        <th>Hora máquina</th>
                         <th>Peças/Hora</th>
                         <th>Paradas (min)</th>
                         <th>Perdas</th>
@@ -717,11 +710,11 @@
         <h3 style="margin-top:0;">Configurações</h3>
         <div class="cp-grid cp-grid-2">
             <div>
-                <label class="cp-label">Nova Maquina</label>
-                <input id="novaMaquina" placeholder="Nome da maquina">
+                <label class="cp-label">Nova máquina</label>
+                <input id="novaMaquina" placeholder="Nome da máquina">
             </div>
             <div style="display:flex; align-items:end;">
-                <button type="button" class="btn btn-accent" onclick="App.addMaquina()">Adicionar Maquina</button>
+                <button type="button" class="btn btn-accent" onclick="App.addMaquina()">Adicionar máquina</button>
             </div>
         </div>
 
@@ -742,19 +735,19 @@
                 <input type="date" id="data">
             </div>
             <div>
-                <label class="cp-label">Maquina</label>
+                <label class="cp-label">Máquina</label>
                 <select id="maquina"></select>
             </div>
             <div>
                 <label class="cp-label">Turno</label>
                 <select id="turno">
-                    <option value="1">1 turno</option>
-                    <option value="2">2 turno</option>
-                    <option value="3">3 turno</option>
+                    <option value="1">1º turno</option>
+                    <option value="2">2º turno</option>
+                    <option value="3">3º turno</option>
                 </select>
             </div>
             <div>
-                <label class="cp-label">Responsavel</label>
+                <label class="cp-label">Responsável</label>
                 <input id="responsavel">
             </div>
         </div>
@@ -779,7 +772,7 @@
                 <input id="cicloIdeal" type="number">
             </div>
             <div>
-                <label class="cp-label">Quantidade Produzida</label>
+                <label class="cp-label">Quantidade produzida</label>
                 <input id="quantidade" type="number">
             </div>
         </div>
@@ -798,30 +791,30 @@
                 <input type="time" id="fim">
             </div>
             <div>
-                <label class="cp-label">Refeicao (min)</label>
+                <label class="cp-label">Refeição (min)</label>
                 <input type="number" id="refeicao">
             </div>
         </div>
 
         <div class="cp-grid cp-grid-3" style="margin-top:10px;">
             <div>
-                <label class="cp-label">Paradas da Maquina (min)</label>
+                <label class="cp-label">Paradas da máquina (min)</label>
                 <input id="paradas" type="number">
-                <div class="cp-help">Informe a soma das paradas ocorridas no registro, em minutos. Ex.: ajuste, manutencao, espera, falta de material.</div>
+                <div class="cp-help">Informe a soma das paradas ocorridas no registro, em minutos. Ex.: ajuste, manutenção, espera, falta de material.</div>
             </div>
             <div>
-                <label class="cp-label">Hora Maquina (automatico)</label>
+                <label class="cp-label">Hora máquina (automático)</label>
                 <input id="horaMaquina" class="cp-readonly" readonly>
-                <div class="cp-help">Calculado automaticamente com base em Hora Inicial, Hora Final, Refeicao e Paradas da Maquina.</div>
+                <div class="cp-help">Calculado automaticamente com base em hora inicial, hora final, refeição e paradas da máquina.</div>
             </div>
             <div>
-                <label class="cp-label">Peças/Hora (automatico)</label>
+                <label class="cp-label">Peças/hora (automático)</label>
                 <input id="pecasHora" class="cp-readonly" readonly>
-                <div class="cp-help">Calculado automaticamente com base em Quantidade Produzida e Hora Maquina.</div>
+                <div class="cp-help">Calculado automaticamente com base em quantidade produzida e hora máquina.</div>
             </div>
         </div>
 
-        <h4 style="margin:14px 0 8px;">Perdas por Processo</h4>
+        <h4 style="margin:14px 0 8px;">Perdas por processo</h4>
         <div class="cp-grid cp-grid-4">
             <div><label class="cp-label">Material</label><input id="material" type="number"></div>
             <div><label class="cp-label">Estampo</label><input id="estampo" type="number"></div>
@@ -857,7 +850,7 @@ function getCookie(name) {
     return cookieValue ? decodeURIComponent(cookieValue.split("=")[1]) : "";
 }
 
-/** Fatias do grafico de pizza: variacao de matiz por turno */
+/** Fatias do gráfico de pizza: variação de matiz por turno */
 function cpSliceColors(turnIndex, n) {
     const hues = [115, 220, 48];
     const hue = hues[turnIndex % 3];
@@ -892,9 +885,13 @@ const App = {
         await this.syncOnlineState();
         this.atualizarListas();
         this.preencherMesVigente();
-        this.state.dadosFiltrados = [...this.state.registros];
+        this.state.dadosFiltrados = this.aplicarFiltroPorData(
+            this.state.registros,
+            document.getElementById("dadosDataInicial").value,
+            document.getElementById("dadosDataFinal").value
+        );
         this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.state.registros);
+        this.renderTabelaDados(this.listaParaTabelaDados());
         this.startAutoSync();
     },
 
@@ -916,8 +913,7 @@ const App = {
                 document.getElementById("dadosDataFinal").value
             );
             this.aplicarDashboardMesVigente();
-            const usandoFiltro = !!document.getElementById("dadosDataInicial").value || !!document.getElementById("dadosDataFinal").value;
-            this.renderTabelaDados(usandoFiltro ? this.state.dadosFiltrados : this.state.registros);
+            this.renderTabelaDados(this.listaParaTabelaDados());
         } catch (e) {
             if (!silent) {
                 alert("Falha ao atualizar dados online.");
@@ -926,10 +922,10 @@ const App = {
     },
 
     bindFiltroDashboard() {
-        ["dataInicial", "dataFinal"].forEach(id => {
+        ["dadosDataInicial", "dadosDataFinal"].forEach(id => {
             const el = document.getElementById(id);
             if (el && !el.dataset.cpDashBound) {
-                el.addEventListener("change", () => this.aplicarDashboardMesVigente());
+                el.addEventListener("change", () => this.aplicarPeriodo());
                 el.dataset.cpDashBound = "1";
             }
         });
@@ -1040,9 +1036,9 @@ const App = {
 
     normalizeTurno(value) {
         const s = String(value || '').toLowerCase().trim();
-        if (["1", "1 turno", "1º turno", "primeiro turno"].includes(s)) return "1";
-        if (["2", "2 turno", "2º turno", "segundo turno"].includes(s)) return "2";
-        if (["3", "3 turno", "3º turno", "terceiro turno"].includes(s)) return "3";
+        if (["1", "1º", "1 turno", "1º turno", "primeiro turno"].includes(s)) return "1";
+        if (["2", "2º", "2 turno", "2º turno", "segundo turno"].includes(s)) return "2";
+        if (["3", "3º", "3 turno", "3º turno", "terceiro turno"].includes(s)) return "3";
         return String(value || '').trim() || "";
     },
 
@@ -1059,13 +1055,13 @@ const App = {
 
     preencherMesVigente() {
         const { inicio, fim } = this.mesVigenteIntervalo();
-        document.getElementById("dataInicial").value = inicio;
-        document.getElementById("dataFinal").value = fim;
+        document.getElementById("dadosDataInicial").value = inicio;
+        document.getElementById("dadosDataFinal").value = fim;
     },
 
     aplicarDashboardMesVigente() {
-        const i = document.getElementById("dataInicial").value;
-        const f = document.getElementById("dataFinal").value;
+        const i = document.getElementById("dadosDataInicial").value;
+        const f = document.getElementById("dadosDataFinal").value;
         const filtrado = this.aplicarFiltroPorData(this.state.registros, i, f);
         this.updateAll(filtrado);
     },
@@ -1092,7 +1088,7 @@ const App = {
 
     abrirDados() {
         this.mostrar("dados");
-        this.renderTabelaDados(this.state.dadosFiltrados.length ? this.state.dadosFiltrados : this.state.registros);
+        this.renderTabelaDados(this.listaParaTabelaDados());
     },
 
     bindDadosExpandir() {
@@ -1335,7 +1331,7 @@ const App = {
         this.atualizarBotaoSalvar();
         this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
         this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);
+        this.renderTabelaDados(this.listaParaTabelaDados());
         this.limparFormulario();
         alert(idx >= 0 ? "Registro atualizado com sucesso" : "Registro salvo com sucesso");
     },
@@ -1380,7 +1376,7 @@ const App = {
         this.state.registros = this.state.registros.filter(r => r.uid !== uid);
         this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
         this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);
+        this.renderTabelaDados(this.listaParaTabelaDados());
     },
 
     atualizarBotaoSalvar() {
@@ -1553,10 +1549,10 @@ const App = {
         const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
         el.innerHTML = `
             <dl>
-                <dt>Producao total</dt><dd>${fmt(totalProd)}</dd>
+                <dt>Produção total</dt><dd>${fmt(totalProd)}</dd>
                 <dt>Perdas totais</dt><dd>${fmt(totalPerda)}</dd>
                 <dt>Registros</dt><dd>${nReg}</dd>
-                <dt>Media de producao/registro</dt><dd>${nReg ? fmt(mediaProdReg) : "—"}</dd>
+                <dt>Média de produção/registro</dt><dd>${nReg ? fmt(mediaProdReg) : "—"}</dd>
                 <dt>Taxa de perda</dt><dd>${taxaPerda.toFixed(1)}%</dd>
             </dl>
         `;
@@ -1631,7 +1627,7 @@ const App = {
                         boxPadding: 6,
                         callbacks: {
                             label(ctx) {
-                                if (!hasData && ctx.dataIndex === 0) return " Sem producao no periodo";
+                                if (!hasData && ctx.dataIndex === 0) return " Sem produção no período";
                                 const v = ctx.parsed;
                                 const sum = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
                                 const pct = ((v / sum) * 100).toFixed(1);
@@ -1654,23 +1650,28 @@ const App = {
         });
     },
 
-    filtrar() {
-        this.aplicarDashboardMesVigente();
+    filtroDatasAtivo() {
+        return !!document.getElementById("dadosDataInicial").value || !!document.getElementById("dadosDataFinal").value;
     },
 
-    filtrarDados() {
+    listaParaTabelaDados() {
+        return this.filtroDatasAtivo() ? this.state.dadosFiltrados : this.state.registros;
+    },
+
+    aplicarPeriodo() {
         const i = document.getElementById("dadosDataInicial").value;
         const f = document.getElementById("dadosDataFinal").value;
-        const filtrado = this.aplicarFiltroPorData(this.state.registros, i, f);
-        this.state.dadosFiltrados = filtrado;
-        this.renderTabelaDados(filtrado);
+        this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, i, f);
+        this.aplicarDashboardMesVigente();
+        this.renderTabelaDados(this.listaParaTabelaDados());
     },
 
-    limparFiltroDados() {
+    limparPeriodo() {
         document.getElementById("dadosDataInicial").value = "";
         document.getElementById("dadosDataFinal").value = "";
         this.state.dadosFiltrados = [...this.state.registros];
-        this.renderTabelaDados(this.state.registros);
+        this.aplicarDashboardMesVigente();
+        this.renderTabelaDados(this.listaParaTabelaDados());
     },
 
     renderTabelaDados(lista) {
@@ -1706,20 +1707,20 @@ const App = {
     },
 
     baixarExcel() {
-        const lista = this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros;
+        const lista = this.listaParaTabelaDados();
         const dados = lista.map(r => ({
             Data: r.data || "",
             Turno: r.turno || "",
-            Maquina: r.maquina || "",
-            Responsavel: r.responsavel || "",
+            "Máquina": r.maquina || "",
+            "Responsável": r.responsavel || "",
             Tipo: r.tipoProduto === "acabado" ? "Produto acabado" : (r.tipoProduto === "semiacabado" ? "Semiacabado" : ""),
             Produto: r.produto || "",
             ODF: r.odf || "",
             Quantidade: r.quantidade || 0,
-            Hora_Maquina: this.toNumber(r.tempo).toFixed(2),
-            Pecas_por_Hora: this.toNumber(r.pecasHora).toFixed(2),
-            Paradas_min: this.toNumber(r.paradasMin),
-            Refeicao_min: this.toNumber(r.refeicao),
+            "Hora_máquina": this.toNumber(r.tempo).toFixed(2),
+            "Peças_por_hora": this.toNumber(r.pecasHora).toFixed(2),
+            "Paradas_min": this.toNumber(r.paradasMin),
+            "Refeição_min": this.toNumber(r.refeicao),
             Perdas: this.toNumber(r.perdas)
         }));
         const ws = XLSX.utils.json_to_sheet(dados);

@@ -1,0 +1,4 @@
+Obrigatorio no host: DATABASE_URL, SECRET_KEY, ALLOWED_HOSTS (DEBUG=0).
+HTTPS: CSRF_TRUSTED_ORIGINS=https://teu-dominio.com
+Media no mesmo dyno: SERVE_MEDIA=1
+O Procfile executa migrate + collectstatic no release; o web sobe depois.

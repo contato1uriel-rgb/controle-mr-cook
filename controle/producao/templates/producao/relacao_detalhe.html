@@ -427,7 +427,7 @@
             <button class="xbtn" type="button" id="btnFecharModalExcluirDetalhe">Fechar</button>
         </div>
         <div class="muted" style="margin: 8px 0 10px;">
-            Tem certeza que deseja excluir <strong>{{ relacao.nome }}</strong>? Essa ação não pode ser desfeita.
+            Tem certeza de que deseja excluir <strong>{{ relacao.nome }}</strong>? Essa ação não pode ser desfeita.
         </div>
         <form method="post" action="{% url 'relacao_excluir' relacao.id %}">
             {% csrf_token %}

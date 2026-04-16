@@ -576,27 +576,6 @@
     </div>
 
     <div id="painel" class="cp-panel">
-        <div class="cp-box cp-box--spaced">
-            <div class="cp-section-title">Período (painel e tabela)</div>
-            <p class="cp-help" style="margin:0 0 10px;">Um intervalo só: vale para os gráficos abaixo e para a tabela na secção Dados.</p>
-            <div class="cp-toolbar">
-                <div>
-                    <label class="cp-label">Data inicial</label>
-                    <input type="date" id="dadosDataInicial">
-                </div>
-                <div>
-                    <label class="cp-label">Data final</label>
-                    <input type="date" id="dadosDataFinal">
-                </div>
-                <div>
-                    <button type="button" class="btn btn-accent" onclick="App.aplicarPeriodo()">Aplicar período</button>
-                </div>
-                <div>
-                    <button type="button" class="btn" onclick="App.limparPeriodo()">Limpar período</button>
-                </div>
-            </div>
-        </div>
-
         <div class="cp-grid cp-grid-2">
             <div class="cp-box">
                 <h3 style="margin:0;">OEE por máquina</h3>
@@ -633,6 +612,21 @@
             </div>
         </div>
 
+        <div class="cp-box cp-box--spaced cp-grid cp-grid-3">
+            <div class="cp-section-title" style="grid-column:1/-1;margin-bottom:4px;">Filtro do período</div>
+            <div>
+                <label class="cp-label">Data inicial</label>
+                <input type="date" id="dataInicial">
+            </div>
+            <div>
+                <label class="cp-label">Data final</label>
+                <input type="date" id="dataFinal">
+            </div>
+            <div style="display:flex; align-items:end;">
+                <button type="button" class="btn btn-accent" onclick="App.filtrar()">Filtrar</button>
+            </div>
+        </div>
+
         <div class="cp-box cp-box--spaced">
             <div class="cp-section-title">Gráficos por turno</div>
             <p class="cp-help" style="margin:0 0 14px;">Participação de Produção x Perdas por turno no período filtrado.</p>
@@ -666,9 +660,22 @@
     <div id="dados" class="cp-box">
         <div class="cp-dados-header">
             <h3 style="margin:0;">Dados da produção</h3>
-            <p class="cp-help" style="margin:6px 0 0;">O período é o mesmo definido em cima no painel (Aplicar período).</p>
         </div>
         <div class="cp-toolbar">
+            <div>
+                <label class="cp-label">Data inicial</label>
+                <input type="date" id="dadosDataInicial">
+            </div>
+            <div>
+                <label class="cp-label">Data final</label>
+                <input type="date" id="dadosDataFinal">
+            </div>
+            <div>
+                <button type="button" class="btn btn-accent" onclick="App.filtrarDados()">Filtrar tabela</button>
+            </div>
+            <div>
+                <button type="button" class="btn" onclick="App.limparFiltroDados()">Limpar filtro</button>
+            </div>
             <div>
                 <button type="button" class="btn" onclick="App.baixarExcel()">Baixar Excel</button>
             </div>
@@ -768,7 +775,7 @@
                 <datalist id="produtosDatalist"></datalist>
             </div>
             <div>
-                <label class="cp-label">Ciclo Ideal (seg/peca)</label>
+                <label class="cp-label">Ciclo ideal (seg/peça)</label>
                 <input id="cicloIdeal" type="number">
             </div>
             <div>
@@ -885,13 +892,9 @@ const App = {
         await this.syncOnlineState();
         this.atualizarListas();
         this.preencherMesVigente();
-        this.state.dadosFiltrados = this.aplicarFiltroPorData(
-            this.state.registros,
-            document.getElementById("dadosDataInicial").value,
-            document.getElementById("dadosDataFinal").value
-        );
+        this.state.dadosFiltrados = [...this.state.registros];
         this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.listaParaTabelaDados());
+        this.renderTabelaDados(this.state.registros);
         this.startAutoSync();
     },
 
@@ -913,7 +916,8 @@ const App = {
                 document.getElementById("dadosDataFinal").value
             );
             this.aplicarDashboardMesVigente();
-            this.renderTabelaDados(this.listaParaTabelaDados());
+            const usandoFiltro = !!document.getElementById("dadosDataInicial").value || !!document.getElementById("dadosDataFinal").value;
+            this.renderTabelaDados(usandoFiltro ? this.state.dadosFiltrados : this.state.registros);
         } catch (e) {
             if (!silent) {
                 alert("Falha ao atualizar dados online.");
@@ -922,10 +926,10 @@ const App = {
     },
 
     bindFiltroDashboard() {
-        ["dadosDataInicial", "dadosDataFinal"].forEach(id => {
+        ["dataInicial", "dataFinal"].forEach(id => {
             const el = document.getElementById(id);
             if (el && !el.dataset.cpDashBound) {
-                el.addEventListener("change", () => this.aplicarPeriodo());
+                el.addEventListener("change", () => this.aplicarDashboardMesVigente());
                 el.dataset.cpDashBound = "1";
             }
         });
@@ -1055,13 +1059,13 @@ const App = {
 
     preencherMesVigente() {
         const { inicio, fim } = this.mesVigenteIntervalo();
-        document.getElementById("dadosDataInicial").value = inicio;
-        document.getElementById("dadosDataFinal").value = fim;
+        document.getElementById("dataInicial").value = inicio;
+        document.getElementById("dataFinal").value = fim;
     },
 
     aplicarDashboardMesVigente() {
-        const i = document.getElementById("dadosDataInicial").value;
-        const f = document.getElementById("dadosDataFinal").value;
+        const i = document.getElementById("dataInicial").value;
+        const f = document.getElementById("dataFinal").value;
         const filtrado = this.aplicarFiltroPorData(this.state.registros, i, f);
         this.updateAll(filtrado);
     },
@@ -1088,7 +1092,7 @@ const App = {
 
     abrirDados() {
         this.mostrar("dados");
-        this.renderTabelaDados(this.listaParaTabelaDados());
+        this.renderTabelaDados(this.state.dadosFiltrados.length ? this.state.dadosFiltrados : this.state.registros);
     },
 
     bindDadosExpandir() {
@@ -1331,7 +1335,7 @@ const App = {
         this.atualizarBotaoSalvar();
         this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
         this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.listaParaTabelaDados());
+        this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);
         this.limparFormulario();
         alert(idx >= 0 ? "Registro atualizado com sucesso" : "Registro salvo com sucesso");
     },
@@ -1376,7 +1380,7 @@ const App = {
         this.state.registros = this.state.registros.filter(r => r.uid !== uid);
         this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, document.getElementById("dadosDataInicial").value, document.getElementById("dadosDataFinal").value);
         this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.listaParaTabelaDados());
+        this.renderTabelaDados(this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros);
     },
 
     atualizarBotaoSalvar() {
@@ -1650,28 +1654,23 @@ const App = {
         });
     },
 
-    filtroDatasAtivo() {
-        return !!document.getElementById("dadosDataInicial").value || !!document.getElementById("dadosDataFinal").value;
+    filtrar() {
+        this.aplicarDashboardMesVigente();
     },
 
-    listaParaTabelaDados() {
-        return this.filtroDatasAtivo() ? this.state.dadosFiltrados : this.state.registros;
-    },
-
-    aplicarPeriodo() {
+    filtrarDados() {
         const i = document.getElementById("dadosDataInicial").value;
         const f = document.getElementById("dadosDataFinal").value;
-        this.state.dadosFiltrados = this.aplicarFiltroPorData(this.state.registros, i, f);
-        this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.listaParaTabelaDados());
+        const filtrado = this.aplicarFiltroPorData(this.state.registros, i, f);
+        this.state.dadosFiltrados = filtrado;
+        this.renderTabelaDados(filtrado);
     },
 
-    limparPeriodo() {
+    limparFiltroDados() {
         document.getElementById("dadosDataInicial").value = "";
         document.getElementById("dadosDataFinal").value = "";
         this.state.dadosFiltrados = [...this.state.registros];
-        this.aplicarDashboardMesVigente();
-        this.renderTabelaDados(this.listaParaTabelaDados());
+        this.renderTabelaDados(this.state.registros);
     },
 
     renderTabelaDados(lista) {
@@ -1707,7 +1706,7 @@ const App = {
     },
 
     baixarExcel() {
-        const lista = this.listaParaTabelaDados();
+        const lista = this.state.dadosFiltrados.length || document.getElementById("dadosDataInicial").value || document.getElementById("dadosDataFinal").value ? this.state.dadosFiltrados : this.state.registros;
         const dados = lista.map(r => ({
             Data: r.data || "",
             Turno: r.turno || "",

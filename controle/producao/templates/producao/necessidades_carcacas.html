@@ -1,10 +1,10 @@
 {% extends "producao/base.html" %}
 
-{% block title %}Necessidades de Carcacas • CONTROLE MR. COOK{% endblock %}
-{% block subtitle %}Necessidades de Carcacas{% endblock %}
-{% block breadcrumb %}Operacoes{% endblock %}
-{% block page_heading %}Necessidades de Carcacas{% endblock %}
-{% block page_heading_meta %}Relacoes filtradas + dados (Excel){% endblock %}
+{% block title %}Necessidades de carcaças • CONTROLE MR. COOK{% endblock %}
+{% block subtitle %}Necessidades de carcaças{% endblock %}
+{% block breadcrumb %}Operações{% endblock %}
+{% block page_heading %}Necessidades de carcaças{% endblock %}
+{% block page_heading_meta %}Relações filtradas + dados (Excel){% endblock %}
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -349,13 +349,13 @@
 <div class="cp-box" style="margin-top: 14px;">
     <div class="cp-section-title">1) Selecione as relações</div>
     <div class="cp-help">
-        Marque uma ou mais relacoes para gerar a tabela de necessidades de carcaca.
-        A filtragem usa a comparacao do <b>Cod_Interno</b> no arquivo <b>dados</b>.
+        Marque uma ou mais relações para gerar a tabela de necessidades de carcaça.
+        A filtragem usa a comparação do <b>Cod_Interno</b> no arquivo <b>dados</b>.
     </div>
     <div class="pill-row" style="margin-top: 12px;">
         <button type="button" class="btn btn-accent" id="expandTableBtnTop" onclick="App.toggleTabelaExpandida()">Expandir tabela</button>
         <button type="button" class="btn" onclick="App.selecionarTudo()">Selecionar tudo</button>
-        <button type="button" class="btn" onclick="App.limparSelecao()">Limpar selecao</button>
+        <button type="button" class="btn" onclick="App.limparSelecao()">Limpar seleção</button>
     </div>
     <div class="rel-list" id="relacoesChecks" style="margin-top: 12px;"></div>
     <div class="cp-help" id="relacoesStatus" style="margin-top: 10px;"></div>
@@ -419,14 +419,14 @@
                 </div>
             </div>
         </div>
-        <table class="cp-table" aria-label="Tabela de necessidades de carcaca">
+        <table class="cp-table" aria-label="Tabela de necessidades de carcaça">
             <thead>
                 <tr id="needsHeader"></tr>
             </thead>
             <tbody id="needsBody"></tbody>
         </table>
     </div>
-    <div id="needsVazio" class="cp-empty" style="display:none;">Selecione relacoes e importe o Excel de dados para gerar a tabela.</div>
+    <div id="needsVazio" class="cp-empty" style="display:none;">Selecione relações e importe o Excel de dados para gerar a tabela.</div>
 </div>
 
 {% endblock %}
@@ -633,7 +633,7 @@
 
             const rels = this.RELACOES || [];
             if (!rels.length) {
-                wrap.innerHTML = "<div class='cp-empty'>Nenhuma relacao encontrada.</div>";
+                wrap.innerHTML = "<div class='cp-empty'>Nenhuma relação encontrada.</div>";
                 return;
             }
 
@@ -678,8 +678,8 @@
             this.state.selectedIds = this.getSelectedIds();
             const el = document.getElementById("relacoesStatus");
             el.textContent = this.state.selectedIds.length
-                ? `Relacoes selecionadas: ${this.state.selectedIds.length}.`
-                : "Nenhuma relacao selecionada.";
+                ? `Relações selecionadas: ${this.state.selectedIds.length}.`
+                : "Nenhuma relação selecionada.";
             this.syncRelacoesMenuChecks();
             this.atualizarTabela();
         },
@@ -783,7 +783,7 @@
             reader.onload = evt => {
                 const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
                 if (!wb.SheetNames.length) {
-                    alert("Nao foi possivel ler a planilha do Excel.");
+                    alert("Não foi possível ler a planilha do Excel.");
                     return;
                 }
                 const byPosition = {
@@ -835,14 +835,14 @@
                     if (namedHits < 4) {
                         if (!hasNineCols) return { parsed: [], score: -1, sheetInfo: "sem 9 colunas" };
                         effectiveIdx = { ...byPosition };
-                        // Se a 1a linha parece cabecalho, começa na 2a; senao começa na 1a.
+                        // Se a 1ª linha parece cabeçalho, começa na 2ª; senão começa na 1ª.
                         const firstRowLooksHeader = headersNorm.some(h =>
                             h.includes("cod") || h.includes("descr") || h.includes("acess") || h.includes("fator") || h.includes("disco") || h.includes("chapa")
                         );
                         startRow = firstRowLooksHeader ? 1 : 0;
                         mode = "posicional";
                     } else {
-                        // Completa as colunas faltantes por posicao.
+                        // Completa as colunas faltantes por posição.
                         this.DATA_COLS.forEach((k, i) => {
                             if (effectiveIdx[k] === -1) effectiveIdx[k] = i;
                         });
@@ -891,8 +891,8 @@
                 const parsed = best.parsed;
                 if (!parsed.length) {
                     alert(
-                        "Nao consegui identificar os dados no arquivo.\n" +
-                        "Verifique se existe uma aba com as 9 colunas esperadas (A ate I)."
+                        "Não consegui identificar os dados no arquivo.\n" +
+                        "Verifique se existe uma aba com as 9 colunas esperadas (A até I)."
                     );
                     return;
                 }
@@ -916,7 +916,7 @@
             reader.onload = evt => {
                 const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
                 if (!wb.SheetNames.length) {
-                    alert("Nao foi possivel ler o arquivo de estoque.");
+                    alert("Não foi possível ler o arquivo de estoque.");
                     return;
                 }
 
@@ -987,7 +987,7 @@
                 return;
             }
 
-            // 1) Soma quantidades por Cod_Interno (produto na relacao)
+            // 1) Soma quantidades por Cod_Interno (produto na relação)
             const qtdPorProduto = {};
             effectiveSelectedRelIds.forEach(relId => {
                 const rel = this.RELACOES.find(r => Number(r.id) === Number(relId));
@@ -1066,7 +1066,7 @@
             const fmt = (v) => {
                 if (v === null || v === undefined) return "";
                 if (typeof v === "number") {
-                    // evita notacao cientifica em valores grandes pequenos
+                    // evita notação científica em valores grandes ou pequenos
                     return String(v);
                 }
                 return String(v);
@@ -1079,9 +1079,9 @@
             if (empty) {
                 empty.style.display = rows.length ? "none" : "block";
                 if (!rows.length && this.state.somenteNegativos) {
-                    empty.textContent = "Nao ha itens com saldo negativo no estoque para o filtro atual.";
+                    empty.textContent = "Não há itens com saldo negativo no estoque para o filtro atual.";
                 } else if (!rows.length) {
-                    empty.textContent = "Selecione relacoes e importe o Excel de dados para gerar a tabela.";
+                    empty.textContent = "Selecione relações e importe o Excel de dados para gerar a tabela.";
                 }
             }
 

@@ -52,7 +52,7 @@
 {% block content %}
 <div class="cp-hub-wrap">
     <section class="cp-hub-card">
-        <h2 class="cp-hub-title">CONTROLE DE PRODUCÃO - CAÇAROLAS</h2>
+        <h2 class="cp-hub-title">CONTROLE DE PRODUÇÃO · CAÇAROLAS</h2>
         <p class="cp-hub-sub">Acompanhe a produção por turno e acesse o painel completo.</p>
 
         <div class="cp-hub-canvas">
@@ -60,7 +60,7 @@
         </div>
 
         <div class="cp-hub-actions">
-            <a class="btn btn-accent" href="{% url 'controle_producao_cacarolas' %}">Abrir Controle de Produção - Caçarolas</a>
+            <a class="btn btn-accent" href="{% url 'controle_producao_cacarolas' %}">Abrir controle de produção — caçarolas</a>
         </div>
     </section>
 </div>
@@ -69,7 +69,7 @@
 new Chart(document.getElementById('graficoTurnos'), {
     type: 'bar',
     data: {
-        labels: ['1° Turno', '2° Turno', '3° Turno'],
+        labels: ['1º turno', '2º turno', '3º turno'],
         datasets: [{
             label: 'Produção',
             data: [120, 95, 70],

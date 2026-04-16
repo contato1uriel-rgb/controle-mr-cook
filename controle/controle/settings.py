@@ -11,11 +11,40 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import subprocess
 import dj_database_url
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _deploy_short_id() -> str:
+    """Identificador curto para o rodapé (prova se o deploy online pegou o Git novo)."""
+    for key in (
+        "RENDER_GIT_COMMIT",
+        "HEROKU_SLUG_COMMIT",
+        "RAILWAY_GIT_COMMIT_SHA",
+        "GIT_COMMIT",
+        "SOURCE_VERSION",
+    ):
+        v = (os.environ.get(key) or "").strip()
+        if v:
+            return v[:12]
+    repo_root = BASE_DIR.parent
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(repo_root),
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+        return (out.decode() or "").strip()[:12] or "?"
+    except (OSError, subprocess.SubprocessError):
+        return "?"
+
+
+APP_DEPLOY_ID = _deploy_short_id()
 
 
 # Quick-start development settings - unsuitable for production
@@ -87,6 +116,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'producao.context_processors.wallpaper_version',
+                'producao.context_processors.deploy_stamp',
             ],
         },
     },

@@ -1681,6 +1681,9 @@
                 </main>
                 <div class="footer">
                     © 2026 Uriel da Cruz Pavão · Full-Stack Developer
+                    {% if app_deploy_id %}
+                        <span class="footer-build" title="Se este texto não mudar após deploy, o host não atualizou o código." style="display:block;margin-top:6px;font-size:0.72rem;opacity:0.65;">Build: {{ app_deploy_id }}</span>
+                    {% endif %}
                 </div>
             </div>
         </div>

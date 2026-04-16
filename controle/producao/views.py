@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 import json
@@ -33,6 +34,7 @@ from .models import (
     RelacaoItem,
 )
 
+logger = logging.getLogger(__name__)
 
 PCP_EXPORTS = {
     "mega_placas_ind": {
@@ -1978,12 +1980,20 @@ def comprar(request):
 
 @never_cache
 def api_relacoes_compras(request):
-    return JsonResponse(_relacoes_compras_list(), safe=False)
+    try:
+        return JsonResponse(_relacoes_compras_list(), safe=False)
+    except Exception:
+        logger.exception("api_relacoes_compras")
+        return JsonResponse([], safe=False)
 
 
 @never_cache
 def api_estoque_carcacas_json(request):
-    return JsonResponse(_load_estoque_map_from_disk())
+    try:
+        return JsonResponse(_load_estoque_map_from_disk())
+    except Exception:
+        logger.exception("api_estoque_carcacas_json")
+        return JsonResponse({})
 
 
 DEFAULT_MRP_XLS_PATH = os.environ.get(
@@ -2909,9 +2919,13 @@ def controle_producao_cacarolas(request):
 
 @ensure_csrf_cookie
 def api_cacarolas_state(request):
-    maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
-    produtos = list(CacarolaProduto.objects.values("nome", "ciclo"))
-    registros = [_serialize_cacarola_registro(r) for r in CacarolaRegistro.objects.all()[:5000]]
+    try:
+        maquinas = list(CacarolaMaquina.objects.values_list("nome", flat=True))
+        produtos = list(CacarolaProduto.objects.values("nome", "ciclo"))
+        registros = [_serialize_cacarola_registro(r) for r in CacarolaRegistro.objects.all()[:5000]]
+    except Exception:
+        logger.exception("api_cacarolas_state")
+        maquinas, produtos, registros = [], [], []
     return JsonResponse(
         {
             "maquinas": maquinas,

@@ -170,12 +170,6 @@
     .pcp-layout.pcp-layout--expanded .pcp-table-wrap {
         max-height: calc(100vh - 260px);
     }
-    .pcp-layout.pcp-layout--expanded.pcp-layout--hide-filter {
-        grid-template-columns: 1fr;
-    }
-    .pcp-layout.pcp-layout--expanded.pcp-layout--hide-filter .pcp-filter-box {
-        display: none;
-    }
     body.pcp-expanded-lock .sidebar,
     body.pcp-expanded-lock .app-topbar,
     body.pcp-expanded-lock .footer,
@@ -620,13 +614,12 @@
         <div class="pcp-layout-topbar">
             <div class="pcp-title" style="font-size:0.86rem;">Modo expandido — PCP</div>
             <div class="pcp-topbar-actions">
-                <button class="btn" type="button" id="btnPcpToggleFilter">Minimizar filtro</button>
                 <button class="btn btn-accent" type="button" id="btnPcpExitExpand">Retornar</button>
             </div>
         </div>
         <aside class="pcp-filter-box" aria-label="Filtro lateral por pedido">
             <div class="pcp-title" style="font-size:0.88rem;">Filtrar por Pedido</div>
-            <div class="cp-help" style="margin-top:4px;">Você pode filtrar 1, 2 ou 3 fontes.</div>
+            <div class="cp-help" style="margin-top:4px;">Pode filtrar uma ou mais fontes.</div>
             <div id="fonteLista" class="pcp-filter-list" style="max-height:120px; margin-top:8px;">
                 {% for f in fontes_disponiveis %}
                     <label data-fonte-item="{{ f.nome|lower }}">
@@ -941,7 +934,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const layout = document.getElementById("pcpLayout");
     const btnExpand = document.getElementById("btnPcpExpand");
     const btnExit = document.getElementById("btnPcpExitExpand");
-    const btnToggleFilter = document.getElementById("btnPcpToggleFilter");
 
     let pcpParent = null;
     let pcpNextSibling = null;
@@ -963,10 +955,6 @@ document.addEventListener("DOMContentLoaded", function () {
             pcpNextSibling = null;
         }
         layout.classList.toggle("pcp-layout--expanded", on);
-        if (!on) {
-            layout.classList.remove("pcp-layout--hide-filter");
-            if (btnToggleFilter) btnToggleFilter.textContent = "Minimizar filtro";
-        }
         document.documentElement.classList.toggle("pcp-expanded-lock", on);
         document.body.classList.toggle("pcp-expanded-lock", on);
     }
@@ -979,12 +967,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (btnExit) {
         btnExit.addEventListener("click", function () {
             setExpanded(false);
-        });
-    }
-    if (btnToggleFilter && layout) {
-        btnToggleFilter.addEventListener("click", function () {
-            const hidden = layout.classList.toggle("pcp-layout--hide-filter");
-            btnToggleFilter.textContent = hidden ? "Mostrar filtro" : "Minimizar filtro";
         });
     }
 

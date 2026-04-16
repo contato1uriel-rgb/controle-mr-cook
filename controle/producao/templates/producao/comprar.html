@@ -545,6 +545,9 @@
 <script>
 window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
 (function () {
+    const API_RELACOES = "{% url 'api_relacoes_compras' %}";
+    const API_ESTOQUE = "{% url 'api_estoque_carcacas_json' %}";
+
     const ComprarApp = {
         STORAGE_KEY: "cmc_dados_carcacas_v1",
         ESTOQUE_KEY: "cmc_estoque_carcacas_v1",
@@ -606,6 +609,22 @@ window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
                 return n === "NaN" ? onlyDigits : n;
             }
             return raw.replace(/\s+/g, "").toUpperCase();
+        },
+
+        async syncFromApis() {
+            try {
+                const [r, e] = await Promise.all([
+                    fetch(API_RELACOES, { credentials: "same-origin" }).then(function (x) { return x.json(); }),
+                    fetch(API_ESTOQUE, { credentials: "same-origin" }).then(function (x) { return x.json(); }),
+                ]);
+                if (Array.isArray(r)) this.RELACOES = r;
+                if (e && typeof e === "object") {
+                    window.__CMC_ESTOQUE_SERVIDOR__ = e;
+                    try {
+                        localStorage.setItem(this.ESTOQUE_KEY, JSON.stringify(e));
+                    } catch (err) {}
+                }
+            } catch (err) {}
         },
 
         toNumber(t) {
@@ -1007,7 +1026,8 @@ window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
             });
         },
 
-        init() {
+        async init() {
+            await this.syncFromApis();
             const ev = document.getElementById("comprarNeedsVazio");
             this.emptyDefaultHtml = ev ? ev.innerHTML : "";
             this.renderRelacoes();
@@ -1042,10 +1062,13 @@ window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
     };
 
     window.ComprarApp = ComprarApp;
+    function startComprar() {
+        ComprarApp.init().catch(function () {});
+    }
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => ComprarApp.init());
+        document.addEventListener("DOMContentLoaded", startComprar);
     } else {
-        ComprarApp.init();
+        startComprar();
     }
 })();
 </script>

@@ -347,7 +347,7 @@
 
 {% block content %}
 <div class="cp-box" style="margin-top: 14px;">
-    <div class="cp-section-title">1) Selecione as relacoes</div>
+    <div class="cp-section-title">1) Selecione as relações</div>
     <div class="cp-help">
         Marque uma ou mais relacoes para gerar a tabela de necessidades de carcaca.
         A filtragem usa a comparacao do <b>Cod_Interno</b> no arquivo <b>dados</b>.
@@ -363,7 +363,7 @@
 </div>
 
 <div class="cp-box" style="margin-top: 14px;">
-    <div class="cp-section-title">2) Dados (Excel -> localStorage)</div>
+    <div class="cp-section-title">2) Dados (Excel) — relações e estoque do servidor ao abrir</div>
     <div class="cp-grid cp-grid-2">
         <div>
             <label class="cp-label">Cadastrar base de dados (Excel)</label>
@@ -434,6 +434,9 @@
 {% block extra_js %}
 <script>
     window.__CMC_ESTOQUE_SERVIDOR__ = {{ estoque_servidor_json|safe }};
+    const API_RELACOES = "{% url 'api_relacoes_compras' %}";
+    const API_ESTOQUE = "{% url 'api_estoque_carcacas_json' %}";
+
     const App = {
         STORAGE_KEY: "cmc_dados_carcacas_v1",
         RELACOES: {{ relacoes_json|safe }},
@@ -471,7 +474,24 @@
             somenteNegativos: false,
         },
 
-        init() {
+        async syncFromApis() {
+            try {
+                const [r, e] = await Promise.all([
+                    fetch(API_RELACOES, { credentials: "same-origin" }).then(function (x) { return x.json(); }),
+                    fetch(API_ESTOQUE, { credentials: "same-origin" }).then(function (x) { return x.json(); }),
+                ]);
+                if (Array.isArray(r)) this.RELACOES = r;
+                if (e && typeof e === "object") {
+                    window.__CMC_ESTOQUE_SERVIDOR__ = e;
+                    try {
+                        localStorage.setItem("cmc_estoque_carcacas_v1", JSON.stringify(e));
+                    } catch (err) {}
+                }
+            } catch (err) {}
+        },
+
+        async init() {
+            await this.syncFromApis();
             this.renderRelacoes();
             this.renderRelacoesMenuExpandido();
             this.loadDados();
@@ -1229,7 +1249,7 @@ ${tableBlock}
     };
 
     document.addEventListener("DOMContentLoaded", () => {
-        App.init();
+        App.init().catch(function () {});
         document.addEventListener("click", (ev) => {
             const menu = document.getElementById("relacoesMiniMenu");
             const btn = document.getElementById("toggleRelacoesMenuBtn");

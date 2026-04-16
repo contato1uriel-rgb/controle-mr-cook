@@ -70,8 +70,6 @@
     .d-layout.d-layout--expanded .d-topbar { display:flex; }
     .d-layout.d-layout--expanded .d-box { min-height:0; overflow:auto; }
     .d-layout.d-layout--expanded .d-table-wrap { max-height: calc(100vh - 250px); }
-    .d-layout.d-layout--expanded.d-layout--hide-filter { grid-template-columns: 1fr; }
-    .d-layout.d-layout--expanded.d-layout--hide-filter aside.d-box { display:none; }
     html.discos-expanded-lock,
     body.discos-expanded-lock { overflow: hidden; }
     .d-setor-filter {
@@ -105,7 +103,6 @@
         <div class="d-topbar">
             <div class="pcp-title" style="font-size:0.86rem;">Modo expandido — Discos</div>
             <div class="actions">
-                <button class="btn" type="button" id="btnDiscosToggleFilter">Minimizar filtro</button>
                 <button class="btn btn-accent" type="button" id="btnDiscosExitExpand">Retornar</button>
             </div>
         </div>
@@ -358,7 +355,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const layout = document.getElementById("discosLayout");
     const btnExpand = document.getElementById("btnDiscosExpand");
     const btnExit = document.getElementById("btnDiscosExitExpand");
-    const btnToggleFilter = document.getElementById("btnDiscosToggleFilter");
     let parent = null;
     let next = null;
 
@@ -379,22 +375,12 @@ document.addEventListener("DOMContentLoaded", function () {
             next = null;
         }
         layout.classList.toggle("d-layout--expanded", on);
-        if (!on) {
-            layout.classList.remove("d-layout--hide-filter");
-            if (btnToggleFilter) btnToggleFilter.textContent = "Minimizar filtro";
-        }
         document.documentElement.classList.toggle("discos-expanded-lock", on);
         document.body.classList.toggle("discos-expanded-lock", on);
     }
 
     if (btnExpand) btnExpand.addEventListener("click", function () { setExpanded(true); });
     if (btnExit) btnExit.addEventListener("click", function () { setExpanded(false); });
-    if (btnToggleFilter && layout) {
-        btnToggleFilter.addEventListener("click", function () {
-            const hidden = layout.classList.toggle("d-layout--hide-filter");
-            btnToggleFilter.textContent = hidden ? "Mostrar filtro" : "Minimizar filtro";
-        });
-    }
     document.addEventListener("keydown", function (ev) {
         if (ev.key === "Escape" && layout && layout.classList.contains("d-layout--expanded")) {
             ev.preventDefault();

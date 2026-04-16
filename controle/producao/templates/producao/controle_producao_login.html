@@ -127,7 +127,7 @@
             <span class="ind-section-label__num">02</span>
             <span class="ind-section-label__text">Produção por turno</span>
         </h2>
-        <p id="cpHubSemDadosMsg" class="muted" style="margin:-4px 0 14px;{% if tem_dados_turno %}display:none{% endif %}">Sem registros locais.</p>
+        <p id="cpHubSemDadosMsg" class="muted" style="margin:-4px 0 14px;{% if tem_dados_turno %}display:none{% endif %}">Sem registros para exibir.</p>
 
         <div class="cp-chart-panel">
             <canvas id="graficoTurnos"></canvas>
@@ -155,21 +155,26 @@
     const k3 = document.getElementById('cpHubKpi3');
     const kt = document.getElementById('cpHubKpiTot');
 
-    function normalizeTurno(value) {
-        const s = String(value || '').toLowerCase().trim();
-        if (['1', '1 turno', '1º turno', 'primeiro turno'].includes(s)) return '1';
-        if (['2', '2 turno', '2º turno', 'segundo turno'].includes(s)) return '2';
-        if (['3', '3 turno', '3º turno', 'terceiro turno'].includes(s)) return '3';
-        return String(value || '').trim();
+    var registrosCache = [];
+
+    function setCacheFromLocalStorage() {
+        try {
+            registrosCache = JSON.parse(localStorage.getItem('registros') || '[]');
+            if (!Array.isArray(registrosCache)) registrosCache = [];
+        } catch (e) {
+            registrosCache = [];
+        }
     }
 
-    function agregarPorTurno() {
-        let raw = [];
-        try {
-            raw = JSON.parse(localStorage.getItem('registros') || '[]');
-        } catch (e) {
-            raw = [];
-        }
+    function normalizeTurno(value) {
+        const s = String(value || '').toLowerCase().trim();
+        if (['1', '1 turno', '1º turno', '1º', 'primeiro turno'].includes(s)) return '1';
+        if (['2', '2 turno', '2º turno', '2º', 'segundo turno'].includes(s)) return '2';
+        if (['3', '3 turno', '3º turno', '3º', 'terceiro turno'].includes(s)) return '3';
+        return '';
+    }
+
+    function agregarPorTurnoDesdeLista(raw) {
         if (!Array.isArray(raw)) raw = [];
         const acc = { '1': 0, '2': 0, '3': 0 };
         raw.forEach(function (r) {
@@ -256,8 +261,8 @@
         }
     });
 
-    function aplicarDadosLocal() {
-        const valores = agregarPorTurno();
+    function aplicarDadosNoGrafico() {
+        const valores = agregarPorTurnoDesdeLista(registrosCache);
         chart.data.datasets[0].data = valores;
         chart.update();
         updateKpisFromData(valores);
@@ -265,12 +270,37 @@
         if (msg) msg.style.display = tem ? 'none' : '';
     }
 
-    aplicarDadosLocal();
+    function refreshDadosProducao() {
+        if (typeof fetch === 'undefined') {
+            setCacheFromLocalStorage();
+            aplicarDadosNoGrafico();
+            return;
+        }
+        fetch('/api/cacarolas/state/', { credentials: 'same-origin' })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (data) {
+                if (data && Array.isArray(data.registros)) {
+                    registrosCache = data.registros;
+                } else {
+                    setCacheFromLocalStorage();
+                }
+                aplicarDadosNoGrafico();
+            })
+            .catch(function () {
+                setCacheFromLocalStorage();
+                aplicarDadosNoGrafico();
+            });
+    }
+
+    refreshDadosProducao();
     window.addEventListener('storage', function (e) {
-        if (e.key === 'registros') aplicarDadosLocal();
+        if (e.key === 'registros') refreshDadosProducao();
     });
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') aplicarDadosLocal();
+        if (document.visibilityState === 'visible') refreshDadosProducao();
     });
 })();
 </script>

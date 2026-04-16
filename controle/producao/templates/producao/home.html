@@ -583,7 +583,7 @@
             <span class="ind-section-label__num">02</span>
             <span class="ind-section-label__text">Produtividade x perdas · 3 turnos</span>
         </h2>
-        <p class="dash-pie-help">Produção e perdas em <strong>unidades</strong>, somando todos os registos guardados no navegador. Passe o rato sobre o gráfico para percentagens; a tabela abaixo resume por turno.</p>
+        <p class="dash-pie-help">Produção e perdas em <strong>unidades</strong>, com dados do <strong>servidor</strong> (caçarolas) quando disponível; se falhar, usa cache do navegador. Passe o rato sobre o gráfico para percentagens; a tabela abaixo resume por turno.</p>
         <div class="dash-pie-wrap">
             <canvas id="homeProductLoss" aria-label="Produtividade e perdas por turno"></canvas>
         </div>
@@ -597,6 +597,7 @@
 (function () {
     const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
     const root = document.documentElement;
+    var registrosCache = null;
 
     function sliceBorderColor() {
         if (typeof getComputedStyle === 'undefined') return '#0f0f16';
@@ -619,19 +620,41 @@
 
     function normalizeTurno(value) {
         const s = String(value || '').toLowerCase().trim();
-        if (['1', '1 turno', '1º turno', 'primeiro turno'].includes(s)) return '1';
-        if (['2', '2 turno', '2º turno', 'segundo turno'].includes(s)) return '2';
-        if (['3', '3 turno', '3º turno', 'terceiro turno'].includes(s)) return '3';
+        if (['1', '1 turno', '1º turno', '1º', 'primeiro turno'].includes(s)) return '1';
+        if (['2', '2 turno', '2º turno', '2º', 'segundo turno'].includes(s)) return '2';
+        if (['3', '3 turno', '3º turno', '3º', 'terceiro turno'].includes(s)) return '3';
         return '';
     }
 
     function loadRegistros() {
+        if (Array.isArray(registrosCache)) return registrosCache;
         try {
             const raw = JSON.parse(localStorage.getItem('registros') || '[]');
             return Array.isArray(raw) ? raw : [];
         } catch (e) {
             return [];
         }
+    }
+
+    function refreshRegistrosFromServer() {
+        if (typeof fetch === 'undefined') {
+            registrosCache = null;
+            renderProductLoss();
+            return;
+        }
+        fetch('/api/cacarolas/state/', { credentials: 'same-origin' })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP');
+                return res.json();
+            })
+            .then(function (data) {
+                registrosCache = data && Array.isArray(data.registros) ? data.registros : null;
+                renderProductLoss();
+            })
+            .catch(function () {
+                registrosCache = null;
+                renderProductLoss();
+            });
     }
 
     function totaisPorTurno(registros) {
@@ -1055,15 +1078,15 @@
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', renderProductLoss);
+        document.addEventListener('DOMContentLoaded', refreshRegistrosFromServer);
     } else {
-        renderProductLoss();
+        refreshRegistrosFromServer();
     }
     window.addEventListener('storage', function (e) {
-        if (e.key === 'registros') renderProductLoss();
+        if (e.key === 'registros') refreshRegistrosFromServer();
     });
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') renderProductLoss();
+        if (document.visibilityState === 'visible') refreshRegistrosFromServer();
     });
     try {
         new MutationObserver(function () {

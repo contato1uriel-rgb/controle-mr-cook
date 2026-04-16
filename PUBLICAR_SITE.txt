@@ -1,0 +1,58 @@
+PUBLICAR O SITE — explicado para quem nunca fez
+===============================================
+
+O QUE EU (assistente no Cursor) CONSIGO FAZER
+----------------------------------------------
+- Mudar ficheiros DESTE projeto na tua pasta.
+- Correr comandos Git NESTA máquina, se o Git já estiver configurado (utilizador GitHub, etc.).
+
+O QUE EU NÃO CONSIGO FAZER (ninguém no Cursor faz sózinho)
+----------------------------------------------------------
+- Entrar no site da Heroku, Railway, Render, Hostinger, VPS, etc. com o teu email/senha.
+- Ver o teu painel de hospedagem ou clicar por ti.
+- Guardar ou usar as tuas senhas. Não envies senhas no chat.
+
+Por isso: o código eu deixo pronto aqui; LIGAR esse código ao servidor na Internet é um passo num WEBSITE EXTERNO, feito por TI uma vez (ou por alguém da tua equipa).
+
+
+PASSO 1 — O código tem de chegar ao sítio que guarda o repositório
+-------------------------------------------------------------------
+Normalmente usas GitHub ou GitLab.
+- Se já tens conta: no Cursor ou no “Git Bash” / terminal, na pasta do projeto:
+    git push origin main
+  (Se pedir login uma vez, isso é normal.)
+- Se der erro, o problema é utilizador Git/token — isso resolve-se nas definições do GitHub (Token), não é “cenário mágico”.
+
+
+PASSO 2 — No SERVIDOR onde o site vai ficar no ar
+-------------------------------------------------
+Cada empresa (Heroku, Railway, …) tem um PAINEL WEB.
+Lá costumas:
+  A) “Conectar repositório” (ligar ao GitHub e escolher este projeto).
+  B) “Deploy” ou “Deploy automaticamente quando há push”.
+
+Depois tens de criar ou ligar uma BASE DE DADOS (Postgres é o normal para Django).
+O painel mostra um texto longo chamado DATABASE_URL — copias para um sitio de “Variáveis de ambiente” / “Environment Variables”.
+
+
+PASSO 3 — Colocar as variáveis (nomes estão no ficheiro env.exemplo.txt)
+------------------------------------------------------------------------
+És tu quem cola no painel os VALORES (o painel do servidor; não o Cursor).
+Nomes importantes:
+  DATABASE_URL   — vem da base de dados que criaste no mesmo painel.
+  SECRET_KEY     — uma frase aleatória longa (geras uma com um gerador online ou “openssl rand”).
+  ALLOWED_HOSTS  — o domínio do teu site, exemplo: meusite.com.br,www.meusite.com.br
+  DEBUG          — mete False ou deixa sem meter (no nosso settings o defeito já é produção).
+
+Se o site usa HTTPS (cadeado no browser), muitas vezes também:
+  CSRF_TRUSTED_ORIGINS — exemplo: https://meusite.com.br,https://www.meusite.com.br
+
+
+PASSO 4 — Depois do primeiro deploy
+-----------------------------------
+No painel costuma haver “Logs”. Se aparecer erro em vermelho, copia a mensagem (ou captura de ecrã) para quem ajuda a programar — sem senhas.
+
+
+RESUMO DE UMA FRASE
+-------------------
+Eu deixo o projeto e o Procfile certos; TU entras UMA VEZ no site da hospedagem, ligas o GitHub, colas as variáveis do env.exemplo.txt e carregas em Deploy. Eu não consigo fazer esse login por ti.
